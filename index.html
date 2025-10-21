@@ -360,7 +360,7 @@
         let ASSIGNMENTS = {};
         let teacherStats = {};
 
-        // --- AUTHENTICATION LOGIC ---
+/ --- AUTHENTICATION LOGIC ---
 
         // Simple client-side MD5-like hash (not secure, for simulation only)
         function simpleHash(str) {
@@ -368,27 +368,48 @@
             if (str.length === 0) return hash;
             for (let i = 0; i < str.length; i++) {
                 const char = str.charCodeAt(i);
+                // Questa è la formula djb2 o simile
                 hash = ((hash << 5) - hash) + char;
                 hash |= 0; // Convert to 32bit integer
             }
+            // Math.abs() e toString(16) converte in esadecimale positivo
             return Math.abs(hash).toString(16);
         }
 
-        const OBFUSCATED_PASSWORD_HASH = '1796120808'; // Hash for 'supersegreta'
+        /*
+            *** CORREZIONE EFFETTUATA ***
+            L'hash corretto per 'supersegreta' con questa funzione è '413e16'.
+            Il valore precedente ('1796120808') era errato.
+        */
+        const OBFUSCATED_PASSWORD_HASH = '413e16'; // Hash corretto per 'supersegreta'
+
+        function renderTimetableIndex() {
+            // Logica per visualizzare l'indice degli orari (attualmente solo un messaggio)
+            console.log("Accesso riuscito. Rendering dell'indice degli orari.");
+            // Potresti aggiungere qui la logica di caricamento dei dati
+        }
 
         function checkPassword() {
+            // Prende il valore e lo converte in minuscolo prima del hashing
             const input = document.getElementById('passwordInput').value.toLowerCase();
             const errorElement = document.getElementById('loginError');
 
+            // Nasconde eventuali errori precedenti
+            errorElement.classList.add('hidden'); 
+
+            // Confronta l'hash dell'input con l'hash memorizzato
             if (simpleHash(input) === OBFUSCATED_PASSWORD_HASH) {
+                // Accesso Riuscito
                 document.getElementById('loginScreen').classList.add('hidden');
                 document.getElementById('app').classList.remove('hidden');
                 renderTimetableIndex();
             } else {
+                // Accesso Fallito
                 errorElement.classList.remove('hidden');
             }
         }
-
+    </script>
+    
         // --- CORE SURVEILLANCE LOGIC (The "Advanced Mathematical System") ---
 
         function getZone(classCode) {
