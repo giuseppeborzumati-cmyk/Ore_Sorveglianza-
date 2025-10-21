@@ -6,22 +6,196 @@
     <title>Gestione Sorveglianze Scolastiche</title>
     <!-- Tailwind CSS CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
-    <!-- JsPDF CDN for PDF generation -->
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap');
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f7fafc;
+        }
+        .scrollable-table {
+            max-height: 400px;
+            overflow-y: auto;
+        }
+        .header-sticky th {
+            position: sticky;
+            top: 0;
+            background-color: #4c51bf;
+            z-index: 10;
+        }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col">
+
+    <!-- Main Application Container -->
+    <div id="app" class="flex-grow flex items-center justify-center p-4">
+        
+        <!-- Login Screen -->
+        <div id="login-screen" class="w-full max-w-md bg-white p-8 rounded-xl shadow-2xl transition-all duration-500">
+            <h1 class="text-3xl font-extrabold text-indigo-700 mb-6 text-center">Area Riservata Sorveglianze</h1>
+            <p class="text-gray-600 mb-6 text-center">Inserisci la password per accedere al sistema di calcolo.</p>
+            <form id="login-form" onsubmit="handleLogin(event)">
+                <div class="mb-4">
+                    <label for="password" class="block text-sm font-medium text-gray-700 mb-2">Password di Accesso</label>
+                    <input type="password" id="password" name="password" required class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500 transition duration-150">
+                </div>
+                <button type="submit" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded-lg shadow-lg transform hover:scale-[1.01] transition duration-200">
+                    Accedi
+                </button>
+                <p id="auth-status" class="mt-4 text-sm text-center text-red-500 hidden"></p>
+            </form>
+        </div>
+
+        <!-- Main Dashboard -->
+        <div id="dashboard-screen" class="w-full max-w-7xl bg-white p-6 md:p-10 rounded-xl shadow-2xl hidden flex-col">
+            <header class="mb-6 border-b pb-4">
+                <h1 class="text-4xl font-extrabold text-indigo-700">Sistema Sorveglianze</h1>
+                <p id="connection-status" class="text-sm mt-1 font-medium"></p>
+            </header>
+
+            <!-- Dashboard Counters and Controls -->
+            <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+                <div class="bg-indigo-50 p-5 rounded-xl shadow-md">
+                    <p class="text-sm font-semibold text-indigo-600">Sorveglianze Totali Assegnate</p>
+                    <p id="total-assignments" class="text-3xl font-bold text-indigo-800 mt-1">0</p>
+                </div>
+                <div class="bg-indigo-50 p-5 rounded-xl shadow-md">
+                    <p class="text-sm font-semibold text-indigo-600">Docenti Coinvolti</p>
+                    <p id="involved-teachers" class="text-3xl font-bold text-indigo-800 mt-1">0</p>
+                </div>
+                <div class="bg-indigo-50 p-5 rounded-xl shadow-md col-span-1 md:col-span-2 flex flex-col justify-center">
+                    <p class="text-sm font-semibold text-indigo-600 mb-2">Stato Avanzamento Calcolo</p>
+                    <div class="w-full bg-gray-200 rounded-full h-2.5">
+                        <div id="progress-bar" class="bg-green-600 h-2.5 rounded-full transition-all duration-700" style="width: 0%"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Action Buttons -->
+            <div class="flex flex-col sm:flex-row gap-4 mb-8">
+                <button onclick="startCalculation()" id="start-btn" class="flex-1 bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-6 rounded-lg shadow-lg transform hover:scale-[1.01] transition duration-200">
+                    Avvia Logica di Calcolo Sorveglianze
+                </button>
+                <button onclick="generatePDF()" id="pdf-btn" class="flex-1 bg-red-600 hover:bg-red-700 text-white font-bold py-3 px-6 rounded-lg shadow-lg transform hover:scale-[1.01] transition duration-200" disabled>
+                    Genera PDF (Elegante)
+                </button>
+                <button onclick="generateCSV()" id="excel-btn" class="flex-1 bg-yellow-600 hover:bg-yellow-700 text-white font-bold py-3 px-6 rounded-lg shadow-lg transform hover:scale-[1.01] transition duration-200" disabled>
+                    Scarica Excel (CSV)
+                </button>
+            </div>
+
+            <!-- Results Table -->
+            <div id="results-container" class="mt-6">
+                <h2 class="text-2xl font-semibold text-gray-700 mb-4 border-b pb-2">Piano Sorveglianze Assegnate</h2>
+                <div class="scrollable-table border rounded-xl shadow-inner">
+                    <table class="min-w-full divide-y divide-indigo-200">
+                        <thead class="header-sticky">
+                            <tr>
+                                <th class="px-4 py-3 text-left text-xs font-bold text-white uppercase tracking-wider">Giorno</th>
+                                <th class="px-4 py-3 text-left text-xs font-bold text-white uppercase tracking-wider">Intervallo</th>
+                                <th class="px-4 py-3 text-left text-xs font-bold text-white uppercase tracking-wider">Area (Piano/Corridoio)</th>
+                                <th class="px-4 py-3 text-left text-xs font-bold text-white uppercase tracking-wider">Docente 1</th>
+                                <th class="px-4 py-3 text-left text-xs font-bold text-white uppercase tracking-wider">Docente 2</th>
+                            </tr>
+                        </thead>
+                        <tbody id="sorveglianze-body" class="bg-white divide-y divide-gray-200 text-sm">
+                            <!-- Results will be inserted here -->
+                            <tr class="bg-gray-50"><td colspan="5" class="px-4 py-4 text-center text-gray-500 italic">Clicca "Avvia Logica di Calcolo Sorveglianze" per generare il piano.</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Teacher Timetable Index -->
+            <div class="mt-12">
+                <h2 class="text-2xl font-semibold text-gray-700 mb-4 border-b pb-2">Indice Orario Docenti</h2>
+                <div class="scrollable-table border rounded-xl shadow-inner">
+                    <table class="min-w-full divide-y divide-gray-200">
+                        <thead class="header-sticky">
+                            <tr class="bg-gray-100">
+                                <th rowspan="2" class="px-4 py-3 text-left text-xs font-bold text-gray-600 uppercase tracking-wider sticky left-0 z-20 bg-gray-100">DOCENTE</th>
+                                <!-- Days Header -->
+                                <th colspan="7" class="px-4 py-1 text-center text-xs font-bold text-gray-600 uppercase tracking-wider border-l border-r">LUNEDÌ</th>
+                                <th colspan="7" class="px-4 py-1 text-center text-xs font-bold text-gray-600 uppercase tracking-wider border-r">MARTEDÌ</th>
+                                <th colspan="7" class="px-4 py-1 text-center text-xs font-bold text-gray-600 uppercase tracking-wider border-r">MERCOLEDÌ</th>
+                                <th colspan="7" class="px-4 py-1 text-center text-xs font-bold text-gray-600 uppercase tracking-wider border-r">GIOVEDÌ</th>
+                                <th colspan="7" class="px-4 py-1 text-center text-xs font-bold text-gray-600 uppercase tracking-wider">VENERDÌ</th>
+                            </tr>
+                            <!-- Hours Header -->
+                            <tr>
+                                <td class="px-2 py-1 text-center text-xs text-gray-500 font-medium">8:00</td>
+                                <td class="px-2 py-1 text-center text-xs text-gray-500 font-medium bg-yellow-100">8:50 (I1)</td>
+                                <td class="px-2 py-1 text-center text-xs text-gray-500 font-medium">9:55</td>
+                                <td class="px-2 py-1 text-center text-xs text-gray-500 font-medium">10:50</td>
+                                <td class="px-2 py-1 text-center text-xs text-gray-500 font-medium bg-yellow-100">11:50 (I2)</td>
+                                <td class="px-2 py-1 text-center text-xs text-gray-500 font-medium">13:00</td>
+                                <td class="px-2 py-1 text-center text-xs text-gray-500 font-medium border-r">13:50</td>
+                                <td class="px-2 py-1 text-center text-xs text-gray-500 font-medium">8:00</td>
+                                <td class="px-2 py-1 text-center text-xs text-gray-500 font-medium bg-yellow-100">8:50 (I1)</td>
+                                <td class="px-2 py-1 text-center text-xs text-gray-500 font-medium">9:55</td>
+                                <td class="px-2 py-1 text-center text-xs text-gray-500 font-medium">10:50</td>
+                                <td class="px-2 py-1 text-center text-xs text-gray-500 font-medium bg-yellow-100">11:50 (I2)</td>
+                                <td class="px-2 py-1 text-center text-xs text-gray-500 font-medium">13:00</td>
+                                <td class="px-2 py-1 text-center text-xs text-gray-500 font-medium border-r">13:50</td>
+                                <td class="px-2 py-1 text-center text-xs text-gray-500 font-medium">8:00</td>
+                                <td class="px-2 py-1 text-center text-xs text-gray-500 font-medium bg-yellow-100">8:50 (I1)</td>
+                                <td class="px-2 py-1 text-center text-xs text-gray-500 font-medium">9:55</td>
+                                <td class="px-2 py-1 text-center text-xs text-gray-500 font-medium">10:50</td>
+                                <td class="px-2 py-1 text-center text-xs text-gray-500 font-medium bg-yellow-100">11:50 (I2)</td>
+                                <td class="px-2 py-1 text-center text-xs text-gray-500 font-medium">13:00</td>
+                                <td class="px-2 py-1 text-center text-xs text-gray-500 font-medium border-r">13:50</td>
+                                <td class="px-2 py-1 text-center text-xs text-gray-500 font-medium">8:00</td>
+                                <td class="px-2 py-1 text-center text-xs text-gray-500 font-medium bg-yellow-100">8:50 (I1)</td>
+                                <td class="px-2 py-1 text-center text-xs text-gray-500 font-medium">9:55</td>
+                                <td class="px-2 py-1 text-center text-xs text-gray-500 font-medium">10:50</td>
+                                <td class="px-2 py-1 text-center text-xs text-gray-500 font-medium bg-yellow-100">11:50 (I2)</td>
+                                <td class="px-2 py-1 text-center text-xs text-gray-500 font-medium">13:00</td>
+                                <td class="px-2 py-1 text-center text-xs text-gray-500 font-medium border-r">13:50</td>
+                                <td class="px-2 py-1 text-center text-xs text-gray-500 font-medium">8:00</td>
+                                <td class="px-2 py-1 text-center text-xs text-gray-500 font-medium bg-yellow-100">8:50 (I1)</td>
+                                <td class="px-2 py-1 text-center text-xs text-gray-500 font-medium">9:55</td>
+                                <td class="px-2 py-1 text-center text-xs text-gray-500 font-medium">10:50</td>
+                                <td class="px-2 py-1 text-center text-xs text-gray-500 font-medium bg-yellow-100">11:50 (I2)</td>
+                                <td class="px-2 py-1 text-center text-xs text-gray-500 font-medium">13:00</td>
+                                <td class="px-2 py-1 text-center text-xs text-gray-500 font-medium">13:50</td>
+                            </tr>
+                        </thead>
+                        <tbody id="timetable-body" class="bg-white divide-y divide-gray-200 text-xs">
+                            <!-- Timetable will be inserted here -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+    <!-- Modals (for PDF/Excel success) -->
+    <div id="modal-success" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full hidden">
+        <div class="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
+            <h3 class="text-lg font-bold text-green-600 mb-3">Operazione Completata!</h3>
+            <p id="modal-message" class="text-gray-600">Il file è stato generato con successo.</p>
+            <div class="mt-4 flex justify-end">
+                <button onclick="document.getElementById('modal-success').classList.add('hidden')" class="px-4 py-2 bg-indigo-500 text-white text-base font-medium rounded-md w-auto shadow-sm hover:bg-indigo-600">
+                    Chiudi
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- External Libraries (jsPDF) -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.23/jspdf.plugin.autotable.min.js"></script>
-    <!-- Firebase Imports (Required for the environment) -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.25/jspdf.plugin.autotable.min.js"></script>
+    
+    <!-- Firebase Imports -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import { getAuth, signInAnonymously, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { getFirestore, doc, setDoc, getDoc, collection } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
-
-        // Variabili globali del Canvas (se presenti)
+        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, collection, onSnapshot, query, limit, doc, setDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        import { setLogLevel } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        
+        // ** GLOBAL FIREBASE VARIABLES (Mandatory) **
         const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
-        const firebaseConfigRaw = typeof __firebase_config !== 'undefined' ? __firebase_config : null;
-        const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
-
-        // Configurazione Firebase fornita dall'utente come fallback o per test locali
-        const fallbackFirebaseConfig = {
+        const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {
             apiKey: "AIzaSyCgVfSzyZi1jIOXvGqe17bsuaVbBr9bW8A",
             authDomain: "oresorveglianza.firebaseapp.com",
             projectId: "oresorveglianza",
@@ -30,730 +204,536 @@
             appId: "1:55401666581:web:c1f303fc1607241df4561c",
             measurementId: "G-GV2ERZ13NG"
         };
+        const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
+
+        setLogLevel('Debug');
         
-        let firebaseConfig = fallbackFirebaseConfig;
-        if (firebaseConfigRaw) {
-            try {
-                firebaseConfig = JSON.parse(firebaseConfigRaw);
-            } catch (e) {
-                console.error("Errore nel parsing di __firebase_config:", e);
-            }
-        }
+        let app, db, auth, userId;
+        
+        try {
+            app = initializeApp(firebaseConfig);
+            db = getFirestore(app);
+            auth = getAuth(app);
+            window.db = db; // Make DB accessible globally
+            
+            // Authentication setup
+            onAuthStateChanged(auth, async (user) => {
+                const statusEl = document.getElementById('connection-status');
+                if (user) {
+                    userId = user.uid;
+                    statusEl.textContent = `Connesso come: ${userId.substring(0, 8)}... | Firebase OK`;
+                    statusEl.classList.remove('text-red-500');
+                    statusEl.classList.add('text-green-600');
+                    
+                    // Fetch and display timetable
+                    renderTimetable();
+                    // Check if calculation already exists (optional, for real persistence)
+                    checkExistingData(userId);
 
-        let db, auth;
-        let isFirebaseReady = false;
-
-        async function initFirebase() {
-            try {
-                const app = initializeApp(firebaseConfig);
-                auth = getAuth(app);
-                db = getFirestore(app);
-
-                if (initialAuthToken) {
-                    await signInWithCustomToken(auth, initialAuthToken);
-                    console.log("Firebase: Accesso con token personalizzato riuscito.");
                 } else {
-                    await signInAnonymously(auth);
-                    console.log("Firebase: Accesso anonimo riuscito.");
+                    // Sign in using custom token or anonymously
+                    try {
+                        if (initialAuthToken) {
+                            await signInWithCustomToken(auth, initialAuthToken);
+                        } else {
+                            // Fallback to anonymous sign-in if token is missing (for local testing/unauthenticated access)
+                            await signInAnonymously(auth);
+                        }
+                    } catch (error) {
+                        console.error("Firebase Auth Error:", error);
+                        statusEl.textContent = 'Errore di autenticazione Firebase!';
+                        statusEl.classList.add('text-red-500');
+                    }
                 }
+            });
 
-                isFirebaseReady = true;
-                document.getElementById('dbStatus').textContent = 'Connesso';
-                document.getElementById('dbStatus').classList.remove('bg-red-500');
-                document.getElementById('dbStatus').classList.add('bg-green-500');
+        } catch (error) {
+            console.error("Firebase Initialization Error:", error);
+            document.getElementById('connection-status').textContent = 'Errore di inizializzazione Firebase!';
+            document.getElementById('connection-status').classList.add('text-red-500');
+        }
 
-                // Espone le variabili globalmente
-                window.db = db;
-                window.auth = auth;
-                window.appId = appId;
-            } catch (error) {
-                console.error("Errore di connessione o autenticazione Firebase:", error);
-                document.getElementById('dbStatus').textContent = 'Errore di connessione';
-                document.getElementById('dbStatus').classList.remove('bg-yellow-500');
-                document.getElementById('dbStatus').classList.add('bg-red-500');
+        // Expose function globally for the login handler
+        window.showDashboard = () => {
+            document.getElementById('login-screen').classList.add('hidden');
+            document.getElementById('dashboard-screen').classList.remove('hidden');
+        };
+
+        // Placeholder for real data persistence check
+        async function checkExistingData(uid) {
+             try {
+                // Public data location for collaborative app
+                const q = query(collection(db, `artifacts/${appId}/public/data/sorveglianze_plan`), limit(1));
+                onSnapshot(q, (snapshot) => {
+                    if (!snapshot.empty) {
+                        // Data exists, could load here. For simplicity, we just confirm connection.
+                        console.log("Existing Sorveglianze data found in Firestore.");
+                    }
+                });
+            } catch (e) {
+                console.error("Error checking Firestore data:", e);
             }
         }
 
-        window.initFirebase = initFirebase;
-    </script>
-    <style>
-        .teacher-cell {
-            writing-mode: vertical-rl;
-            transform: rotate(180deg);
-            padding: 4px;
-            font-size: 0.75rem;
-            line-height: 1;
-        }
-        .rotated-header {
-            writing-mode: vertical-rl;
-            transform: rotate(180deg);
-            height: 120px;
-            text-align: left;
-            padding: 8px 4px;
-        }
-        /* Custom scrollbar for better aesthetics */
-        ::-webkit-scrollbar {
-            width: 8px;
-            height: 8px;
-        }
-        ::-webkit-scrollbar-track {
-            background: #f1f1f1;
-            border-radius: 10px;
-        }
-        ::-webkit-scrollbar-thumb {
-            background: #cbd5e1;
-            border-radius: 10px;
-        }
-        ::-webkit-scrollbar-thumb:hover {
-            background: #94a3b8;
-        }
-    </style>
-</head>
-<body class="bg-gray-100 font-sans antialiased" onload="window.initFirebase()">
-
-    <!-- Login/Auth Modal -->
-    <div id="loginScreen" class="fixed inset-0 bg-gray-900 bg-opacity-95 z-50 flex items-center justify-center p-4">
-        <div class="bg-white p-8 rounded-xl shadow-2xl w-full max-w-md">
-            <h2 class="text-3xl font-bold text-center text-indigo-600 mb-6">Accesso Riservato</h2>
-            <p class="text-gray-600 text-center mb-6">Inserisci la password per accedere al sistema di gestione delle sorveglianze.</p>
-            <input type="password" id="passwordInput" placeholder="Password" class="w-full p-4 border border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500 mb-4 text-center text-lg">
-            <button onclick="checkPassword()" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 rounded-lg transition duration-200 shadow-md">Accedi</button>
-            <p id="loginError" class="text-red-500 text-center mt-4 hidden">Password errata. Riprova.</p>
-        </div>
-    </div>
-
-    <!-- Main Application Content -->
-    <div id="app" class="hidden min-h-screen p-6 lg:p-10">
-
-        <!-- Header e Status -->
-        <header class="mb-8 border-b pb-4 flex flex-col lg:flex-row justify-between items-center">
-            <h1 class="text-4xl font-extrabold text-gray-900 flex items-center">
-                 Gestione Sorveglianze Scolastiche
-            </h1>
-            <div class="mt-4 lg:mt-0 flex items-center space-x-4">
-                <span class="text-sm font-semibold text-gray-700">Database Status:</span>
-                <span id="dbStatus" class="inline-block px-3 py-1 text-xs font-semibold text-white rounded-full bg-yellow-500 transition duration-300">Caricamento...</span>
-            </div>
-        </header>
-
-        <!-- Indice/Menu Principale -->
-        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-10">
-            <!-- Totale Sorveglianze -->
-            <div class="bg-white p-6 rounded-xl shadow-lg border-l-4 border-indigo-500">
-                <p class="text-sm font-medium text-gray-500">Sorveglianze Totali Assegnate</p>
-                <p id="totalAssignments" class="text-4xl font-bold text-gray-900 mt-1">0</p>
-            </div>
-
-            <!-- Docenti Coinvolti -->
-            <div class="bg-white p-6 rounded-xl shadow-lg border-l-4 border-indigo-500">
-                <p class="text-sm font-medium text-gray-500">Docenti Coinvolti</p>
-                <p id="involvedTeachers" class="text-4xl font-bold text-gray-900 mt-1">0</p>
-            </div>
-
-            <!-- Controlli e Esportazione -->
-            <div class="bg-white p-6 rounded-xl shadow-lg flex flex-col justify-between">
-                <h3 class="text-xl font-semibold text-gray-800 mb-4">Report & Export</h3>
-                <div class="flex flex-col space-y-3">
-                    <button onclick="startLogic()" id="startButton" class="bg-green-600 hover:bg-green-700 text-white font-bold py-3 rounded-lg transition duration-200">
-                        Avvia Calcolo Sorveglianze
-                    </button>
-                    <div class="flex space-x-3">
-                        <button onclick="exportToPDF()" id="exportPdfButton" class="w-1/2 bg-red-600 hover:bg-red-700 text-white font-bold py-2 rounded-lg transition duration-200" disabled>
-                            Esporta PDF Elegante
-                        </button>
-                        <button onclick="exportToExcel()" id="exportExcelButton" class="w-1/2 bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 rounded-lg transition duration-200" disabled>
-                            Esporta Excel (CSV)
-                        </button>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <!-- Stato di Avanzamento del Calcolo -->
-        <div id="progressContainer" class="mb-8 hidden">
-            <h3 class="text-xl font-semibold text-gray-800 mb-2">Stato di Avanzamento</h3>
-            <div class="w-full bg-gray-200 rounded-full h-4">
-                <div id="progressBar" class="bg-blue-600 h-4 rounded-full transition-all duration-500" style="width: 0%"></div>
-            </div>
-            <p id="progressText" class="text-sm text-gray-600 mt-2"></p>
-        </div>
-
-        <!-- Risultati delle Sorveglianze -->
-        <main>
-            <h2 class="text-2xl font-bold text-gray-800 mb-4">Assegnazioni di Sorveglianza (Intervalli e Zone)</h2>
-            <div id="resultsContainer" class="space-y-12">
-                <!-- Tabelle risultati generate da JavaScript -->
-            </div>
-        </main>
-
-        <!-- Indice Orario Docenti -->
-        <section class="mt-12">
-            <h2 class="text-2xl font-bold text-gray-800 mb-4">Orario Docenti Completo (Riferimento)</h2>
-            <div class="bg-white p-4 rounded-xl shadow-lg overflow-x-auto max-h-96">
-                <table id="timetableTable" class="min-w-full divide-y divide-gray-200 border border-gray-200">
-                    <!-- Tabella Orario Docenti generata da JavaScript -->
-                </table>
-            </div>
-        </section>
-
-    </div>
-
-    <!-- JavaScript Core Logic -->
-    <script>
-        const TEACHER_TIMETABLE_DATA = {
-            "ABBIATI CHIARA": [null, null, "5J", "3T", "2J", "4J", null, "5J", "3J", null, "1J", "2J", "3T", null, "4J", "3J", null, null, null, null, null, null, "4J", "5J", "2J", "3T", "1J", null, null, null, "3J", "1J", null],
-            "ARCARA MATTEO": [null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, "1S", "3I", "5S", null, "4I", "2S", "1B", null, null, null, null, null],
-            "ARGENTINA COSIMO": [null, "5J", "5D", "D", "3J", "3J", null, null, null, null, "4J", "2J", null, "5D", "5J", null, "4J", null, null, null, null, "5J", "5J", "3J", null, null, null, null, "4J", "4J", "3J", "5J", null, "2J"],
-            "BACCO ALESSANDRA": [null, null, null, "1D", "1D", null, null, null, "2DN", "2DN", "1D", "1D", null, "3D", "3D", "X", "X", "3P", "3P", null, "2DN", "2DN", null, null, null, null, null, "3D", "3D", null, "1D", "3P", "3P"],
-            "BAJ SARAH": [null, "2A", null, "1A", null, "2P", "2N", "1P", null, null, null, null, null, null, null, null, "1A", "1J", null, null, null, null, null, null, null, null, null, "2N", "2A", "1J", null, "2P", "1P"],
-            "BAÙ GIORGIA": [null, "2DN", "2S", null, "1N", null, "1D", "1V", "1V", "1D", "1N", null, null, null, null, "1T", "2DN", "1N", "1D", null, "2DN", "D", "1D", "1V", null, null, null, "1P", "1S", null],
-            "BELLOTTI GABRIELE": [null, "4N", "D", "3P", null, null, null, "D", "D", "D", null, "4P", "5P", null, null, null, null, null, null, null, "4P", "3P", "4N", null, "4P", "4P", "4N", "4N", null, "4P", "4P", "5P", null, null],
-            "BENFENATI ANDREA": [null, null, null, "2T", "3D", "4L", "5D", null, null, "3N", null, "5L", null, "5D", "3D", "2T", null, "5L", "3N", "2T", "5P", "4L", "3D", "3N", "1J", null, "5L", "4L", "5D", null, null],
-            "BIFFI ELENA": [null, null, null, null, "1V", "1V", "1B", "1N", null, null, null, null, null, null, null, null, "1V", null, "1P", "1A", "1D", null, null, null, null, null, null, null, null, null],
-            "BORZUMATI GIUSEPPE": [null, "2L", "3I", "1B", "1B", "5L", "3L", null, "5I", "3I", null, null, null, "2I", null, "1A", "1A", "1B", null, null, "2I", "2L", "5I", "5L", null, null, null, null, "1A", "3L", null],
-            "BOTTA RAFFAELLA": [null, "5A", "5A", null, "3A", "4A", "5S", "1S", null, "5S", "1S", "2S", null, null, null, "5S", "5S", null, "4A", "4A", "5S", "5S", "2S", null, null, null, null, "5A", "3A", null],
-            "BOTTON CRISTINA": [null, null, null, "2T", "2A", "1J", "2S", null, null, "1S", "2S", "1T", null, "1J", "2T", null, "2J", "1V", null, "1A", "2A", "1T", "1S", null, null, null, "2J", "1V", "1A", null],
-            "BRUNETTA VIVIANA": [null, null, null, null, null, null, null, "D", "D", "D", null, null, null, null, null, null, null, null, null, null, null, null, "D", "D", null],
-            "BUCOLO ROSARIO": [null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null],
-            "CALABRESE M.": [null, "2N", "2P", "2P", null, null, null, "3L", "3L", null, "1A", "1A", null, "1B", "2P", "3I", null, "2N", "2N", "1A", null, "3L", "3I", "3I", "1B", "1B"],
-            "CALIFANO CARMELA": [null, "3J", "3J", null, null, null, "1T", null, "4J", null, "1V", "D", "3J", "3J", null, "4J", null, "D", null, "4J", "1T", null, "3J", "D", "D", "1V", "4J", "4J"],
-            "CANNELLA CHIARA": [null, "2D", "2N", null, null, "1D", "1B", null, null, null, "2D", "1N", "1P", "1A", "2P", null, null, null, null, null, "2D", "2D", null],
-            "CAPODICI FRANCESCO": [null, "1P", null, "2D", "2S", null, "2J", "2P", null, "2N", "1P", "1D", null, null, null, "1D", "1D", "2P", "2S", null, "2J", "2N", "2D", "2T", null, "2N", "2P", "1P", "2T", "2D"],
-            "CAPUTO SERENA": [null, "4L", "5D", "3L", "1I", "1I", null, "1I", null, "4L", null, "X", "X", "3L", "3L", null, "4L", "4L", "1I", "1I", null, "5D", null, null, "3L", "5D", null],
-            "CARPINO GIACOMO": [null, null, "D", "3N", "5N", "5N", null, "D", "D", "3N", null, "5N", "5N", "3N", "3N", null, null, null, null, "3N", "D", "5N", null, "3N", "3N", "5N", "5N"],
-            "CASALINO ANGELO": [null, "1J", "2J", "D", null, null, null, null, "2J", "1J", "D", null, null, null, null, null, null, null, null, null, null, null, null, null],
-            "CASIRAGHI ANDREA": [null, "3D", "3D", null, "5D", "5D", null, "3D", "3D", "5D", null, null, "1D", null, "3D", "3D", "5D", "3D", "3D", "3D", "5D", "5D", "1D", null, "5D", "5D", "3D", "3D", "5D", "1D"],
-            "CASTOLDI VALERIA": [null, null, null, "5P", "5P", null, "1T", null, "5P", "5P", "1T", null, null, null, null, null, "5P", "5P", "1T", "1T", null, null, null, null],
-            "CATALDO FEDERICA": [null, null, null, null, null, null, "2A", "2A", null, "4A", "4A", null, null, null, null, null, "2A", "4A", "4A", null],
-            "CAVALIERATOS ANGELA": [null, null, null, "D", "1B", "2A", "1A", "1A", null, "D", "1B", "2A", null, "D", "2A", "1B", "1A", null, null, null, null, null, null, null],
-            "CAVICCHIONI CRISTINA": [null, "1S", "2L", "2I", "1T", null, null, null, null, "1T", "2L", "2I", "1S", null, "1T", "2I", null, "2L", "1S"],
-            "CIMINO SALVATORE": [null, "3N", "2D", "2N", null, "1P", "1P", "2P", null, "2D", "2D", null, "3N", "1D", "2N", "2N", "1P", null, "D", "D", "2P", "2P", null, null, null, "1D", "1D"],
-            "CIMMINO MARIO": [null, null, null, "2S", "1J", "2J", "2J", "2S", "2T", null, "1T", "1S", null, null, "2T", "1T", "1J", "1T", "2S", null, "1S", "1J", "2J", null, "1S", "2T"],
-            "CIONCI SIMONA": [null, "1B", "1B", "D", "D", "D", null, "1T", null, null, "1T", "1B", "1B", null, null, null, null, null, null, "1B", "1B", null, null],
-            "CITTERIO MAURIZIO": [null, "1L", null, null, null, null, "5L", "5L", "2L", "1L", "1L", null, "X", "5L", "2L", "1L", "1L", null, "2L", "2L", null, "5L", null, "5L", null],
-            "COGLIATI LUIGI": [null, null, null, "3P", "4N", "4N", null, "5N", "4N", "4N", null, "3P", "3P", null, "3P", "3P", "4N", "4N", "D", null, "3P", "3P", null, null, "4N", "4N", null, "5N"],
-            "COLOMBO GIULIANA": [null, "2S", "4N", "2J", "3N", null, "1S", null, "1S", "2J", "2S", "2T", null, "2S", "2S", "2T", null, "1S", "1S", null, "2J", "2J", "1N", null, null, "2T", "2T", null],
-            "COLOMBO RUGGERO": [null, "5I", "5I", "1I", "1I", null, "1I", "1I", "1I", "5I", null, null, null, null, null, "1I", "1I", "5I", null, null, null, null, null],
-            "COLZANI BARBARA": [null, "5P", "2S", "3L", "4I", "2J", null, "1V", null, "5S", "2S", null, "4I", "5S", "5P", null, "4I", "5P", "3L", null, "3L", "D", null, "2S", "5S", null],
-            "COMI LUCA": [null, null, null, null, null, "5D", "5D", "5D", "5D", "3D", "3D", null, null, null, "5D", "5D", "3D", null, null, null, null, null, null, null],
-            "CONTI DAMIANA": [null, null, null, null, null, "5A", "5A", "3A", null, "3A", "3A", null, "5A", "5A", "3A", "3A", "5A", null, null, null, "4A", "4A"],
-            "CORTI CHIARA": [null, null, "4P", "4P", "3P", "3P", "5P", "4N", "4P", "5P", "5P", "5N", "5N", null, "4N", "4N", "4P", null, "5N", null, "5N", "3N", "3N", "5P", "3P", null, "4N", "3N"],
-            "CORVI LAURA": [null, "4L", null, "1D", "1D", "4I", "4I", "2A", "1D", null, "1P", null, "4I", "2D", "4L", "4L", null, "2A", null, "1N", "2A", "1P", "1P", "2D", "2D", "1N", "1N"],
-            "COTRONEO SIMONA": [null, "5S", "5S", "2S", "X", null, "3T", "3T", "X", "X", null, "5S", null, "3T", "1S", "2S", null, "3T", null, "5S", "5S", null, "1S", "X", "X", "X"],
-            "CRESCENTI SALVATORE": [null, null, null, "1T", "5L", "4N", null, "3N", null, "1J", "4J", null, "3T", "1I", "5NT", null, "1V", "2T", "4L", "1N", "2I", "5J", null, "4T", "2J", "3J"],
-            "CRIPPA ELENA": [null, "X", "X", null, "5J", "5J", null, "X", "X", "5J", "5J", "X", "X", null, "X", "X", null, null, null, "X", "X", null, null, "5J", "5J"],
-            "CUCCHIARA ROSALINDA": [null, "3I", "4L", null, "2I", "2I", null, "X", null, "5I", "3I", "3I", null, "5I", "2I", "4I", null, "3I", "4I", "1I", "1I", null, "5I", "5I", "4I", "4I", "2I", null],
-            "CURIA CLELIA": [null, null, null, "1T", null, "2T", "1V", "5S", null, "2T", "5S", null, null, "1V", "2T", "1T", null, "1T", "1V", "5S", null],
-            "D'AMICO ROMINA": [null, null, null, null, "5S", "5S", "2J", "2J", null, "2J", "2J", null, "5S", "5S", null, "2J", "2J", "5S", "5S", null],
-            "DE BENEDETTI SERGIO": [null, "1A", "1A", "1V", "4A", null, "5A", "5A", "1A", "1V", null, "4A", "4A", "1L", "1L", null, "1A", "2L", null, "5A", null, "4A", "1V", "1V", null],
-            "DE FABRIS ANNALISA": [null, "1S", "5S", null, "3T", null, "5T", null, "5S", "4T", null, "1S", "4T", "5T", "2S", "3T", null, "4T", "2S", "5T", null, "2S", "1S", "3T", "5S"],
-            "DELLA TORRE ANNA": [null, "4A", "4A", null, "5A", "5A", "3A", "3A", "4A", "4A", null, "3A", "3A", "5A", "5A", null, "4A", "4A", null, "5A", "5A", "3A", "3A", null],
-            "DI DIA VITO": [null, null, null, "2N", "2D", "2D", "1B", "2A", "2A", "1A", "1A", null, "2P", "2P", "1N", null, "1A", "2P", null, "2D", "1B", "1B", null, "1N", "1N", "2A", null, "2N", "2N"],
-            "DI STASIO MARIA GRAZIA": [null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null],
-            "ESPOSITO ERIKA": [null, null, null, "5P", "5P", "3P", "3P", null, "5P", "5P", "3P", "3P", null, "5P", "5P", "5P", "5P", "3P", "3P", null, null, null, "3P", "3P", "5P", "5P"],
-            "FILIPPA FRANCESCA": [null, "4A", "4A", null, "5A", "5A", "3A", "3A", "4A", "4A", null, "3A", "3A", "5A", "5A", null, "4A", "4A", null, "5A", "5A", "3A", "3A", null],
-            "FIRRINCIELI GIOVANNI": [null, "1D", "1D", "3D", "3D", null, "1N", "3D", "3D", "1D", "1D", "1N", null, "1N", "1N", null, "3D", "D", null, "3D", "1D", "1D", "1D", null],
-            "FRAIESE ALESSIA": [null, "4T", "1J", "1J", null, "4A", "4A", null, null, "4T", "4A", null, "4T", "4T", null, "1J", "1J", "4A", null, "4T", "4T", null, "1J", "1J", "4A", "4A", null],
-            "FRATTA DONATO": [null, null, null, "1S", "X", null, null, "X", null, "X", null, null, null, "X", null, "X", null, null, "1S", "X", null],
-            "GALBIATI ALESSANDRA": [null, null, null, "4J", "4J", "5T", "3J", null, "5T", "5T", null, "4T", "3T", "4J", "5J", "5J", null, "3J", "3J", null, "3T", "3T", "5J", null, "4T", "4T"],
-            "GAVAZZI IRIS": [null, null, null, null, null, "4I", "4I", "2L", "1N", null, null, null, "1N", "4I", null, "2L", "2L", null, "4I"],
-            "GHALI SAMIRA": [null, "1N", "1N", "1B", "1B", null, "1P", "1P", "1A", "1A", null, "1D", "1D", null],
-            "GIARDINA GIUSI": [null, "5L", "5L", "3I", null, "3L", null, "3L", "3I", "3I", null, "1I", "1I", "5L", "5L", "3L", null, "3I", "5L", "3L", "3L", null, "1I", "3I"],
-            "GIUNTA CALOGERO": [null, null, null, null, null, null, null, null, null, null, null, "4L", "4I", "1I", "1L", null, "4L", "4I", "1L", "1I", null],
-            "GRIFÒ VALENTINA": [null, null, null, "5T", "5T", "2T", "4T", "5T", "4T", "4T", null, "3T", null, "5T", "5T", "4T", "3T", "2T", "3T", "5T", null, "4T", null, "3T", "3T", null],
-            "IAVARONE LAURA": [null, "X", "X", null, "2D", "3D", "1D", "1B", "D", null, "D", "D", null, "1N", "1D", "1B", null, "3D", "2D", null, "1D", "D", "D", "1N"],
-            "IOP ELENA": [null, "1T", "1T", "2J", null, null, "1J", "1J", "1A", "1V", null, "2P", "1T", "1J", null, "3P", null, "2DN", null, "1T", "1B", null, "2A", null, "4A", "1P", "3L", "1J"],
-            "LA MATTINA ELENA": [null, "X", "5NT", "5NT", null, null, "X", "5NT", null, "X", null, "X", "X", "X", "X", "X", "X", "5NT", "5NT", null, "X", "X", "5NT"],
-            "LA PAGLIA DOMINGO": [null, null, null, "5N", "5N", "3N", "3N", "5N", "5N", "5N", "5N", null, "5N", "5N", "3N", "3N", null, "3N", "3N", null, null, null, "3N", "3N", "5N", "5N"],
-            "LILLIU DANIELA": [null, "4P", "1P", null, "1N", "5N", "2P", "3P", "2P", null, "3P", "3P", "1P", null, "2P", "4N", "5N", "4P", "4P", "5N", "4N", null, "X", "1P", "4N"],
-            "LISI ROBERTA": [null, null, null, null, null, "5A", "5A", null, "3A", "3A", "4A", "5A", "5A", null, "4A", "4A"],
-            "LOSURDO ARGENTINA": [null, null, null, "X", "4T", "4T", "2T", "4T", "1V", "5T", "5T", null, "1T", "4T", "1V", "5T", "2T", "X", "X", null, "5T", "5T", "1T"],
-            "MAGLIOCCO EMANUELE": [null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null],
-            "MALACARNE PAOLO": [null, "2T", "2T", "4T", "4T", null, "3T", "3T", null, "1T", "1T", null, "4N", "4N", null, "3N", "3N", null, "2DN", "2DN", "1N", "1N", null, "5NT", "5NT", null],
-            "MANERA BENEDETTO": [null, "4I", "4I", "2L", "2L", null, "4L", "4L", null, "2I", "2I", null, "3I", "3I", null, "3L", "3L", null, "1L", "1L", null, "1I", "1I", null, "5L", "5L"],
-            "MARINI ANDREA": [null, "3L", "3L", null, "3I", "3I", null, "3L", "3L", null, "3I", "3I", null, null, null, null, null, null, null, null, null, null, null, null, null],
-            "MARROCCO LUIGI": [null, "1V", "1V", null, "1A", "1A", "2DN", "2DN", null, "2DN", "2DN", "1V", "1V", null, "1V", "1V", null, "1A", "1A", null, "1A", "1A", "2DN", "2DN", null],
-            "MENGHI RITA": [null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null],
-            "MESSANA CRISTINA": [null, "3A", "2A", "2A", null, null, "1B", "1T", null, "3A", "3A", null, "1B", "1B", "3A", "2A", null, "2A", null, "1B", "1D", null],
-            "MIRABILE FABRIZIO": [null, null, "4P", "4P", "4N", "4N", null, "4N", null, "4P", null, "4N", "4N", "4N", "4N", null, "4P", "4P", "4N", "4N", null, "4P", "4P", null, "4P", "4P"],
-            "NASTO MONIA": [null, "4A", "3A", "1N", null, "2A", "1A", "1B", "1A", null, "5A", "1N", null, "1B", null, "5A", "2A", "3A", "4A", "1A", "2A", null, "5A", "4A", "3A", "1B", "1N", null],
-            "NUCIFORA CLAUDIO": [null, null, null, "1N", "2L", "2N", "2L", "2L", "2I", "2P", null, "2N", null, "2L", null, "2I", "2D", "1D", "1P", "1N", "2I", null, "1P", null, "2I", "2D", "2P", "1D"],
-            "OSSO ELVIRA": [null, null, null, null, null, "1A", null, "1B", "2P", null, "2A", null, "X", "X", "1N", null, "2N", "1P", null],
-            "PALLINI SIMONE": [null, "1L", "5I", "5L", null, "1T", "1J", "1L", "2I", "5I", "2L", "1I", "1J", null, "1I", "1V", null, "5L", "5L", "2L", "5I", "2I", null, "1V", "1T", null],
-            "PAPANDREA MARIA CRISTINA": [null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null],
-            "PETITO FRANCESCO": [null, null, null, "3A", "2DN", "5P", "5D", "3D", null, "1A", "2A", "4P", null, "1D", "5I", "3P", null, "3L", "2L", null, "1L", "4A", null, "1P", null, "2P", null, "5A"],
-            "PETRELLA GIULIA": [null, null, "4J", "2J", null, "3J", "X", "3J", "5J", "1J", "X", null, "5J", "4J", "3J", null, "4J", "1J", "2J", "5J", null, "X", "2J", null, "1J"],
-            "POMINELLI ANGELA": [null, "2I", "2I", "5L", null, "1L", null, "2I", null, "1L", null, "3I", "5L", "5L", "2I", "2I", null, "2I", null, "3I", null, "3I", "3I", "2I", "5L", "1L"],
-            "POZZI ACHILLE": [null, null, "5P", null, "1P", null, "4P", "2P", "3I", "1P", "5P", null, "2P", "2I", "4I", "4P", null, "2P", "2P", "5P", null, "4P", "4P", null, "1P", "1P"],
-            "QUERCIA TERESA": [null, null, null, null, null, "5I", "1L", "5T", "4T", null, "1L", "4T", null, "5T", "5I", null, "4T", null, "1L", "5I", "5T"],
-            "REDAELLI ANNA": [null, "3T", "3T", "1S", null, "2S", "1S", "1S", null, "3T", "3T", "2S", "2S", null, "2S", "1S", "1S", "3T", null, "2S", "2S", "1S", null, "3T"],
-            "RINALDI DAMIANO": [null, "2J", "4T", "3T", "1J", null, "4J", null, "1V", "4T", null, "2T", null, "3J", "2J", null, "4J", "1T", "1J", "2T", null, "3T", null, "3J", "1T", "1V"],
-            "RUSSO ENRICA": [null, null, null, "4I", "5I", null, "4I", "4I", "5L", "5L", null, "5I", null, "4L", null, "5I", "5I", "5L", "4L", null, "4I", "5L", "4L", "4L", null],
-            "SANTAMBROGIO ANNA": [null, null, "3A", "3I", "5A", "3I", "1D", "3A", null, "4A", "5A", null, "4A", "1I", "2DN", null, "4A", "1I", "3A", null, "D", null, "1I", "5A", "3I"],
-            "SAVINO SARA": [null, null, null, "2A", "2A", "3A", "3A", null, "2A", "2A", "3A", "3A", null, "3A", "3A", null, "2A", "2A"],
-            "SCORTA ANDREA": [null, null, null, "3A", "3A", "4A", "4A", "1B", "1B", null, "2A", "2A", null, "5D", "5D", "1D", "1D", "5A", "5A", null, "1A", "1A", "3D", "3D"],
-            "SCUFFI GIUSEPPINA": [null, null, null, "3L", "4L", "5L", "5I", null, null, "5L", "3L", "4L", "5I"],
-            "SERRADORI SILVIA": [null, "5T", "5J", null, "4J", "4J", "3T", "3T", "3J", "3J", null, "5T", "5T", "5J", "5J", "5S", null, "4T", "4T", "3T", "4J", null, "3J", null, "5S", "5S", "4T", null],
-            "SFERRAGATTA MARIO": [null, "2P", "2P", "D", null, null, null, "1V", "1V", null, "1S", "1S", "D", null, "5I", "5I", "1P", null, "X", "X", null, "D", "D", "1P", null, "2S", "2S"],
-            "SGHERZI FEDERICA": [null, "4J", "4J", "3J", null, null, "4J", "5J", "5J", null, "5J", "4J", "4J", null, "3J", "3J", null, "3J", "3J", null, "5J", "5J", "4J", null, "5J", "3J", null],
-            "SGRÒ VINCENZO": [null, "1N", "1N", null, "1S", null, "1P", "2S", null, "1P", "1P", null, null, null, "1D", "1D", null, "2S", "1S", "1N", null],
-            "SIMONE MICHELE": [null, null, null, "4L", "1L", null, "3L", "3L", "D", null, "4L", "4L", null, "1L", "1L", "2L", null, "1L", "3L", "2L", null, "2L", "2L", "D", null, "3L", "4L"],
-            "SIRTORI MADDALENA": [null, null, null, "1L", "1L", "2L", "2I", null, null, "2L", "4I", "4I", null, "2I", null, "3I", "3I", null],
-            "SOLANO EMANUELA": [null, null, null, null, "1A", null, "1B", "2P", null, "2A", null, "X", "X", "1N", null, "2N", "1P", null],
-            "TAGLIALATELA IDA": [null, "5D", "3N", "3N", "4N", null, "4N", "3N", "5D", null, "3N", "5D", "5D", null, "4N", "4N", "3N", "4N", "5D", null, "4N", "3N", "5D"],
-            "TENTORI CLARA": [null, null, "4P", "5P", "5P", null, "3N", "3N", "3N", "3N", "X", "4P", null, "X", "X", null, "5P", "5P", null, "X", "X", null, "5P", "5P", "5P"],
-            "TEOFILO SILVIA": [null, null, "1P", "1P", null, "4P", "4P", "2T", "2T", "4P", null, "2T", null, "1P", "1P", "4P", null, "1P", "1P", "2T", null, "2T", "2T", "4P", "4P"],
-            "TERRANA ANGELA": [null, "5N", "4N", "4N", "3N", null, "1S", null, "1N", "1N", "2S", "2T", null, "5N", "5N", "1N", null, "1N", "4N", null, "3N", null, "3N", "3N", "4N", "1J", null],
-            "TODDE CLAUDIO": [null, "3D", "3D", null, "5D", "5D", null, "5D", "5D", null, "1D", "1D", null, "3D", "3D", null, "3D", "3D", "3D", "5D", "5D", null, "5D", "5D", "2A", null],
-            "TONIAL MARICA": [null, null, "4L", "4L", "5I", "5I", null, "1L", null, "5I", "4I", "4I", null, "4L", "4L", null, "1B", "1B", "4I", "4I", "4L", null, "1L", "1L", "5I", "5I", "4I"],
-            "VERGA ELENA": [null, null, null, "5S", "5S", "5J", "5J", null, "3J", "3J", null, "4P", "4P", null, "1J", "1J", "2J", "2J", null, "5P", "5P", null, "3P", "3P", "4J", "4J"],
-            "VIOLA ANGELA": [null, "1I", "1I", null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null],
-            "ZAPPA ALESSANDRO": [null, null, null, "5N", "4P", "5P", null, "5N", "5N", "D", null, "3P", null, "5P", "5P", "5P", "4P", "D", null, "5N", "3P", null, "3P", "3P", "4P", "4P"],
-            "ZINGALES SALVATORE": [null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null],
-            "ZUCCARO ADRIANO": [null, "3P", "3P", "5A", "5A", null, "3P", "3P", null, "2P", "2P", null, "5A", "5A", null, "5A", "5A", "3P", "3P", "2P", "2P", null, "2P", "2P", null],
-            "ZUCCONELLI MARISA": [null, null, "UT", "UT", "UT", "UT", null, "UT", "UT", "UT", null, "UT", "UT", "UT", "UT", null, "UT", "UT", "UT", null, "UT", "UT", "UT", "UT", null]
-        };
-
-        const DAYS = ["LUNEDI'", "MARTEDI'", "MERCOLEDI'", "GIOVEDI'", "VENERDI'"];
-        const HOUR_MAP = {
-            'H2': { time: '8:50 - 9:45', interval: 'INTERVALLO 1 (9:45 - 9:55)' }, // Precede Interval 1 (9:45-9:55)
-            'H5': { time: '11:50 - 12:45', interval: 'INTERVALLO 2 (12:45 - 13:00)' } // Precede Interval 2 (12:45-13:00)
-        };
-        
-        // Indici delle ore nel DATA array:
-        // LUN: [0, H1(08:00), H2(08:50), H3(09:55), H4(10:50), H5(11:50), H6(13:00), H7(13:50)]
-        // H2 (Interval 1) è l'indice 2 per ogni giorno (e 9, 16, 23, 30...)
-        // H5 (Interval 2) è l'indice 5 per ogni giorno (e 12, 19, 26, 33...)
-        const HOUR_INDICES = {
-            'H2': [2, 9, 16, 23, 30], // Lun H2, Mar H2, Mer H2, Gio H2, Ven H2
-            'H5': [5, 12, 19, 26, 33]  // Lun H5, Mar H5, Mer H5, Gio H5, Ven H5
-        };
-        
-        const DADA_CLASSES = new Set([
-            '3A', '4A', '5A', '3D', '5D', '1I', '2I', '3I', '4I', '5I', '1L', '2L', '3L', '4L', '5L', '3N', '4N', '5N', '3P', '4P', '5P'
-        ]);
-
-        // Mappatura semplificata Classe -> Zona di Sorveglianza (Corridio/Piano)
-        // Basata sulla logica triennio/biennio e i dati forniti
-        const CLASS_TO_ZONE = {
-            // Piano Terra (PT): Atrio / Corridoio A/D (Biennio/Generale)
-            '1A': 'PT - Corridoio A (Biennio)', '1B': 'PT - Corridoio A (Biennio)', '1D': 'PT - Corridoio A (Biennio)', '1N': 'PT - Corridoio A (Biennio)',
-            '2A': 'PT - Corridoio A (Biennio)', '2D': 'PT - Corridoio A (Biennio)', '2DN': 'PT - Corridoio A (Biennio)', '2P': 'PT - Corridoio A (Biennio)',
-            '1P': 'PT - Corridoio A (Biennio)', '1V': 'PT - Corridoio A (Biennio)', '1T': 'PT - Corridoio A (Biennio)', '2T': 'PT - Corridoio A (Biennio)',
-            '1S': 'PT - Corridoio A (Biennio)', '2S': 'PT - Corridoio A (Biennio)', '5S': 'PT - Corridoio A (Biennio)',
-            'D': 'Non Assegnato', 'X': 'Non Assegnato', 'UT': 'Non Assegnato', '5NT': 'Non Assegnato', // No class, Day off, Training
-
-            // Primo Piano (1P): Corridoio B/D (Triennio DADA)
-            '3A': '1P - Corridoio B/D (Triennio DADA)', '3D': '1P - Corridoio B/D (Triennio DADA)', '3I': '1P - Corridoio B/D (Triennio DADA)', '3L': '1P - Corridoio B/D (Triennio DADA)',
-            '3N': '1P - Corridoio B/D (Triennio DADA)', '3P': '1P - Corridoio B/D (Triennio DADA)', '3J': '1P - Corridoio B/D (Triennio DADA)', '3T': '1P - Corridoio B/D (Triennio DADA)',
-
-            // Secondo Piano (2P): Corridoio A/E (Quinquennio DADA)
-            '4A': '2P - Corridoio A/E (Quinquennio DADA)', '4D': '2P - Corridoio A/E (Quinquennio DADA)', '4I': '2P - Corridoio A/E (Quinquennio DADA)', '4L': '2P - Corridoio A/E (Quinquennio DADA)',
-            '4N': '2P - Corridoio A/E (Quinquennio DADA)', '4P': '2P - Corridoio A/E (Quinquennio DADA)', '4J': '2P - Corridoio A/E (Quinquennio DADA)', '4T': '2P - Corridoio A/E (Quinquennio DADA)',
-            '5A': '2P - Corridoio A/E (Quinquennio DADA)', '5D': '2P - Corridoio A/E (Quinquennio DADA)', '5I': '2P - Corridoio A/E (Quinquennio DADA)', '5L': '2P - Corridoio A/E (Quinquennio DADA)',
-            '5N': '2P - Corridoio A/E (Quinquennio DADA)', '5P': '2P - Corridoio A/E (Quinquennio DADA)', '5J': '2P - Corridoio A/E (Quinquennio DADA)', '5T': '2P - Corridoio A/E (Quinquennio DADA)',
-            '1I': '2P - Corridoio A/E (Quinquennio DADA)', '2I': '2P - Corridoio A/E (Quinquennio DADA)', // 1I/2I spostati qui per bilanciamento
-            '1L': '2P - Corridoio A/E (Quinquennio DADA)', '2L': '2P - Corridoio A/E (Quinquennio DADA)',
-            '1J': '2P - Corridoio A/E (Quinquennio DADA)', '2J': '2P - Corridoio A/E (Quinquennio DADA)',
-        };
-
-        let ASSIGNMENTS = {};
-        let teacherStats = {};
-
-/ --- AUTHENTICATION LOGIC ---
-
-        // Simple client-side MD5-like hash (not secure, for simulation only)
-        function simpleHash(str) {
-            let hash = 0;
-            if (str.length === 0) return hash;
-            for (let i = 0; i < str.length; i++) {
-                const char = str.charCodeAt(i);
-                // Questa è la formula djb2 o simile
-                hash = ((hash << 5) - hash) + char;
-                hash |= 0; // Convert to 32bit integer
+        // Function to save the final plan to Firestore (for demonstration/persistence)
+        window.savePlanToFirestore = async (plan, teachers) => {
+            if (!db || !userId) {
+                console.error("Firebase not initialized or user not authenticated.");
+                return;
             }
-            // Math.abs() e toString(16) converte in esadecimale positivo
-            return Math.abs(hash).toString(16);
-        }
-
-        /*
-            *** CORREZIONE EFFETTUATA ***
-            L'hash corretto per 'supersegreta' con questa funzione è '413e16'.
-            Il valore precedente ('1796120808') era errato.
-        */
-        const OBFUSCATED_PASSWORD_HASH = '413e16'; // Hash corretto per 'supersegreta'
-
-        function renderTimetableIndex() {
-            // Logica per visualizzare l'indice degli orari (attualmente solo un messaggio)
-            console.log("Accesso riuscito. Rendering dell'indice degli orari.");
-            // Potresti aggiungere qui la logica di caricamento dei dati
-        }
-
-        function checkPassword() {
-            // Prende il valore e lo converte in minuscolo prima del hashing
-            const input = document.getElementById('passwordInput').value.toLowerCase();
-            const errorElement = document.getElementById('loginError');
-
-            // Nasconde eventuali errori precedenti
-            errorElement.classList.add('hidden'); 
-
-            // Confronta l'hash dell'input con l'hash memorizzato
-            if (simpleHash(input) === OBFUSCATED_PASSWORD_HASH) {
-                // Accesso Riuscito
-                document.getElementById('loginScreen').classList.add('hidden');
-                document.getElementById('app').classList.remove('hidden');
-                renderTimetableIndex();
-            } else {
-                // Accesso Fallito
-                errorElement.classList.remove('hidden');
+            try {
+                const planRef = doc(db, `artifacts/${appId}/public/data/sorveglianze_plan`, 'latest_plan');
+                await setDoc(planRef, {
+                    plan: plan,
+                    teachersInvolved: Array.from(teachers),
+                    timestamp: new Date().toISOString(),
+                    userId: userId 
+                });
+                console.log("Piano di sorveglianza salvato con successo su Firestore.");
+            } catch (e) {
+                console.error("Errore nel salvataggio su Firestore:", e);
             }
-        }
+        };
+
     </script>
     
-        // --- CORE SURVEILLANCE LOGIC (The "Advanced Mathematical System") ---
+    <script>
+        // --- HARDCODED DATA STRUCTURES ---
 
-        function getZone(classCode) {
-            // Un codice ora può contenere più classi (es. "5J 3D") o una classe e una Lab (es. "1A A.2")
-            if (!classCode || classCode.length < 2) return 'Non Assegnato';
+        const TEACHERS_TIMETABLE = [
+            ["ABBIATI CHIARA", "", "5J", "3T", "2J", "4J", "", "5J", "3J", "", "1J", "2J", "3T", "", "4J", "3J", "", "", "", "", "", "", "4J", "5J", "2J", "3T", "1J", "", "", "", "3J", "1J", "", "", ""],
+            ["ARCARA MATTEO", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "1S", "3I", "5S", "", "4I", "2S", "1B", "", "", "", "", "", "", ""],
+            ["ARGENTINA COSIMO", "", "5J", "5D", "D", "3J", "3J", "", "", "", "", "4J", "2J", "", "5D", "5J", "", "4J", "", "", "", "5J", "5J", "3J", "", "", "", "4J", "4J", "3J", "5J", "", "2J"],
+            ["BACCO ALESSANDRA", "", "", "", "1D", "1D", "", "", "2DN", "2DN", "1D", "1D", "", "3D", "3D", "X", "X", "3P", "3P", "", "2DN", "2DN", "", "", "", "", "", "3D", "3D", "", "1D", "3P", "3P", ""],
+            ["BAJ SARAH", "", "2A", "", "1A", "", "2P", "2N", "1P", "", "", "", "", "", "1A", "1J", "", "", "", "", "", "2N", "2A", "1J", "", "2P", "1P", ""],
+            ["BAÙ GIORGIA", "", "2DN", "2S", "", "1N", "", "1D", "1V", "1V", "1D", "1N", "", "", "", "", "1T", "2DN", "1N", "1D", "", "2DN", "D", "1D", "1V", "", "", "1P", "1S", ""],
+            ["BELLOTTI GABRIELE", "", "4N", "D", "3P", "", "", "D", "D", "D", "", "4P", "5P", "", "", "", "4P", "3P", "4N", "", "4P", "4P", "4N", "4N", "", "4P", "4P", "5P", ""],
+            ["BENFENATI ANDREA", "", "", "2T", "3D", "4L", "5D", "", "", "3N", "", "5L", "", "5D", "3D", "2T", "", "5L", "3N", "2T", "5P", "4L", "3D", "3N", "1J", "", "5L", "4L", "5D", ""],
+            ["BIFFI ELENA", "", "", "", "1V", "1V", "1B", "1N", "", "", "", "", "", "1V", "", "1P", "1A", "1D", "", "", "", "", "", "", "", "", "", "", "", "", "", ""],
+            ["BORZUMATI GIUSEPPE", "", "2L", "3I", "1B", "1B", "5L", "3L", "", "5I", "3I", "", "", "", "", "2I", "", "1A", "1A", "1B", "", "", "2I", "2L", "5I", "5L", "", "", "1A", "3L", ""],
+            ["BOTTA RAFFAELLA", "", "5A", "5A", "", "3A", "4A", "5S", "1S", "", "5S", "1S", "2S", "", "5S", "5S", "", "4A", "4A", "5S", "5S", "2S", "", "", "", "", "", "5A", "3A", ""],
+            ["BOTTON CRISTINA", "", "", "2T", "2A", "1J", "2S", "", "", "1S", "2S", "1T", "", "1J", "2T", "", "2J", "1V", "", "", "1A", "2A", "1T", "1S", "", "2J", "1V", "1A", ""],
+            ["BRUNETTA VIVIANA", "", "", "", "", "", "", "D", "D", "D", "", "", "", "", "", "", "", "", "", "", "", "", "D", "D", "", "", ""],
+            ["BUCOLO ROSARIO", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", ""],
+            ["CALABRESE M.", "", "2N", "2P", "2P", "", "", "3L", "3L", "", "1A", "1A", "", "1B", "2P", "3I", "", "2N", "2N", "1A", "", "3L", "3I", "3I", "1B", "1B", ""],
+            ["CALIFANO CARMELA", "", "3J", "3J", "", "", "", "1T", "", "4J", "", "", "1V", "D", "3J", "3J", "", "4J", "", "D", "", "4J", "1T", "", "3J", "D", "D", "1V", "4J", "4J"],
+            ["CANNELLA CHIARA", "", "2D", "2N", "", "", "", "1D", "1B", "", "", "2D", "1N", "1P", "1A", "2P", "", "", "", "", "", "", "2A", "4A", "", "", "", "", ""],
+            ["CAPODICI FRANCESCO", "", "1P", "", "2D", "2S", "", "2J", "2P", "", "2N", "1P", "1D", "", "1D", "1D", "2P", "2S", "", "2J", "2N", "2D", "2T", "", "2N", "2P", "1P", "2T", "2D"],
+            ["CAPUTO SERENA", "", "4L", "5D", "3L", "1I", "1I", "", "1I", "", "4L", "", "X", "X", "3L", "3L", "", "", "4L", "4L", "1I", "1I", "", "5D", "", ""],
+            ["CARPINO GIACOMO", "", "", "D", "3N", "5N", "5N", "", "D", "D", "3N", "", "5N", "5N", "3N", "3N", "", "3N", "D", "5N", "", "3N", "3N", "5N", "5N", ""],
+            ["CASALINO ANGELO", "", "1J", "2J", "D", "", "", "2J", "1J", "D", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", ""],
+            ["CASIRAGHI ANDREA", "", "3D", "3D", "", "5D", "5D", "", "3D", "3D", "5D", "", "1D", "", "3D", "3D", "5D", "3D", "3D", "3D", "5D", "5D", "1D", "", "5D", "5D", "3D", "3D", "5D", "1D"],
+            ["CASTOLDI VALERIA", "", "", "", "", "", "5P", "5P", "", "1T", "", "5P", "5P", "1T", "", "", "", "", "", "", "5P", "5P", "1T", "1T", "", "", ""],
+            ["CATALDO FEDERICA", "", "", "", "", "", "2A", "2A", "", "4A", "4A", "", "", "", "", "", "", "2A", "4A", "4A", ""],
+            ["CAVALIERATOS ANGELA", "", "", "D", "1B", "2A", "1A", "", "1A", "", "D", "1B", "2A", "", "D", "2A", "1B", "1A", "", "", "", "", "", "", "", "", ""],
+            ["CAVICCHIONI CRISTINA", "", "1S", "2L", "2I", "1T", "", "", "", "", "1T", "2L", "2I", "1S", "", "1T", "2I", "", "2L", "1S", ""],
+            ["CIMINO SALVATORE", "", "3N", "2D", "2N", "", "1P", "1P", "2P", "", "2D", "2D", "", "3N", "1D", "2N", "2N", "1P", "", "D", "D", "2P", "2P", "", "1D", "1D"],
+            ["CIMMINO MARIO", "", "", "2S", "1J", "2J", "2J", "2S", "2T", "", "1T", "1S", "", "2T", "1T", "1J", "1T", "2S", "", "1S", "1J", "2J", "", "1S", "2T"],
+            ["CIONCI SIMONA", "", "1B", "1B", "D", "D", "D", "", "1T", "", "", "1T", "1B", "1B", "", "", "", "", "", "1B", "1B", "", "", ""],
+            ["CITTERIO MAURIZIO", "", "1L", "", "", "5L", "5L", "2L", "1L", "1L", "", "X", "5L", "2L", "1L", "1L", "", "2L", "2L", "", "5L", "", "5L", ""],
+            ["COGLIATI LUIGI", "", "3P", "4N", "4N", "", "5N", "4N", "4N", "", "3P", "3P", "", "3P", "3P", "4N", "4N", "D", "", "3P", "3P", "", "4N", "4N", "", "5N", ""],
+            ["COLOMBO GIULIANA", "", "2S", "4N", "2J", "3N", "", "1S", "1S", "2J", "2S", "2T", "", "2S", "2S", "2T", "", "1S", "1S", "", "2J", "2J", "1N", "", "2T", "2T", ""],
+            ["COLOMBO RUGGERO", "", "5I", "5I", "1I", "1I", "", "1I", "1I", "1I", "5I", "", "", "1I", "1I", "5I", ""],
+            ["COLZANI BARBARA", "", "5P", "2S", "3L", "4I", "2J", "", "1V", "", "5S", "2S", "", "4I", "5S", "5P", "", "4I", "5P", "3L", "", "3L", "D", "", "2S", "5S", ""],
+            ["COMI LUCA", "", "", "", "", "5D", "5D", "5D", "5D", "3D", "3D", "", "5D", "5D", "3D", ""],
+            ["CONTI DAMIANA", "", "", "", "", "", "5A", "5A", "3A", "", "3A", "3A", "", "5A", "5A", "3A", "3A", "5A", "", "4A", "4A", "", "5A", "5A", "3A", "3A", ""],
+            ["CORTI CHIARA", "", "4P", "4P", "3P", "3P", "5P", "4N", "4P", "5P", "5P", "5N", "5N", "", "4N", "4N", "4P", "", "5N", "", "5N", "3N", "3N", "5P", "3P", "", "4N", "3N"],
+            ["CORVI LAURA", "", "4L", "", "1D", "1D", "4I", "4I", "2A", "1D", "", "1P", "", "4I", "2D", "4L", "4L", "", "2A", "", "1N", "2A", "1P", "1P", "2D", "2D", "1N", "1N"],
+            ["COTRONEO SIMONA", "", "5S", "5S", "2S", "X", "", "3T", "3T", "X", "X", "", "5S", "", "3T", "1S", "2S", "", "3T", "", "5S", "5S", "", "1S", "X", "X", "X"],
+            ["CRESCENTI SALVATORE", "", "1T", "5L", "4N", "", "3N", "", "1J", "4J", "", "3T", "1I", "5NT", "", "1V", "2T", "4L", "1N", "2I", "5J", "", "4T", "2J", "3J"],
+            ["CRIPPA ELENA", "", "X", "X", "", "5J", "5J", "", "X", "X", "5J", "5J", "X", "X", "", "X", "X", "", "", "X", "X", "", "", "5J", "5J", ""],
+            ["CUCCHIARA ROSALINDA", "", "3I", "4L", "", "2I", "2I", "", "X", "", "5I", "3I", "3I", "", "5I", "2I", "4I", "", "3I", "4I", "1I", "1I", "", "5I", "5I", "4I", "4I", "2I"],
+            ["CURIA CLELIA", "", "", "1T", "", "2T", "1V", "5S", "", "2T", "5S", "", "1V", "2T", "1T", "", "1T", "1V", "5S", ""],
+            ["D'AMICO ROMINA", "", "", "", "", "5S", "5S", "2J", "2J", "", "2J", "2J", "", "5S", "5S", "", "2J", "2J", "5S", "5S", ""],
+            ["DE BENEDETTI SERGIO", "", "1A", "1A", "1V", "4A", "", "5A", "5A", "1A", "1V", "", "4A", "4A", "1L", "1L", "", "1A", "2L", "", "5A", "", "4A", "1V", "1V", ""],
+            ["DE FABRIS ANNALISA", "", "1S", "5S", "", "3T", "", "5T", "", "5S", "4T", "", "1S", "4T", "5T", "2S", "3T", "", "4T", "2S", "5T", "", "2S", "1S", "3T", "5S"],
+            ["DELLA TORRE ANNA", "", "4A", "4A", "", "5A", "5A", "3A", "3A", "4A", "4A", "", "3A", "3A", "5A", "5A", "", "4A", "4A", "", "5A", "5A", "3A", "3A", ""],
+            ["DI DIA VITO", "", "2N", "2D", "2D", "", "1B", "2A", "2A", "1A", "1A", "", "2P", "2P", "1N", "", "1A", "2P", "", "2D", "1B", "1B", "", "1N", "1N", "2A", "", "2N", "2N"],
+            ["DI STASIO MARIA GRAZIA", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", ""],
+            ["ESPOSITO ERIKA", "", "5P", "5P", "3P", "3P", "", "5P", "5P", "3P", "3P", "", "5P", "5P", "5P", "5P", "3P", "3P", "", "3P", "3P", "5P", "5P"],
+            ["FILIPPA FRANCESCA", "", "4A", "4A", "", "5A", "5A", "3A", "3A", "4A", "4A", "", "3A", "3A", "5A", "5A", "", "4A", "4A", "", "5A", "5A", "3A", "3A", ""],
+            ["FIRRINCIELI GIOVANNI", "", "1D", "1D", "3D", "3D", "", "1N", "3D", "3D", "1D", "1D", "1N", "", "1N", "1N", "", "3D", "D", "", "3D", "1D", "1D", "1D", ""],
+            ["FRAIESE ALESSIA", "", "4T", "1J", "1J", "", "4A", "4A", "", "4T", "4A", "4T", "4T", "", "1J", "1J", "4A", "", "4T", "4T", "", "1J", "1J", "4A", "4A"],
+            ["FRATTA DONATO", "", "1S", "X", "", "X", "X", "", "X", ""],
+            ["GALBIATI ALESSANDRA", "", "4J", "4J", "5T", "3J", "", "5T", "5T", "", "4T", "3T", "4J", "5J", "5J", "", "3J", "3J", "", "3T", "3T", "5J", "", "4T", "4T"],
+            ["GAVAZZI IRIS", "", "4I", "4I", "2L", "1N", "", "1N", "4I", "", "2L", "2L", "", "4I"],
+            ["GHALI SAMIRA", "", "1N", "1N", "1B", "1B", "", "1P", "1P", "1A", "1A", "", "1D", "1D", "", "", "", "", ""],
+            ["GIARDINA GIUSI", "", "5L", "5L", "3I", "", "3L", "", "3L", "3I", "3I", "", "1I", "1I", "5L", "5L", "3L", "", "3I", "5L", "3L", "3L", "", "1I", "3I"],
+            ["GIUNTA CALOGERO", "", "4L", "4I", "1I", "1L", "", "4L", "4I", "1L", "1I", ""],
+            ["GRIFÒ VALENTINA", "", "5T", "5T", "2T", "4T", "5T", "4T", "4T", "", "5T", "5T", "4T", "3T", "2T", "3T", "5T", "", "4T", "", "3T", "3T"],
+            ["IAVARONE LAURA", "", "X", "X", "", "2D", "3D", "1D", "1B", "D", "", "D", "D", "", "1N", "1D", "1B", "", "3D", "2D", "", "1D", "D", "D", "1N"],
+            ["IOP ELENA", "", "1T", "1T", "2J", "", "1J", "1J", "1A", "1V", "", "2P", "1T", "1J", "", "3P", "", "2DN", "", "1T", "1B", "", "2A", "", "4A", "1P", "3L", "1J"],
+            ["LA MATTINA ELENA", "", "X", "5NT", "5NT", "", "X", "5NT", "", "X", "", "X", "X", "X", "X", "", "X", "X", "5NT", "5NT", "", "X", "X", "5NT"],
+            ["LA PAGLIA DOMINGO", "", "5N", "5N", "3N", "3N", "5N", "5N", "5N", "5N", "", "5N", "5N", "3N", "3N", "3N", "3N", "", "3N", "3N", "5N", "5N"],
+            ["LILLIU DANIELA", "", "4P", "1P", "", "1N", "5N", "2P", "3P", "2P", "", "3P", "3P", "1P", "", "2P", "4N", "5N", "4P", "4P", "5N", "4N", "", "X", "1P", "4N"],
+            ["LISI ROBERTA", "", "5A", "5A", "", "3A", "3A", "4A", "5A", "5A", "", "4A", "4A"],
+            ["LOSURDO ARGENTINA", "", "X", "4T", "4T", "2T", "4T", "1V", "5T", "5T", "", "1T", "4T", "1V", "5T", "2T", "X", "X", "", "5T", "5T", "1T"],
+            ["MAGLIOCCO EMANUELE", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", ""],
+            ["MALACARNE PAOLO", "", "2T", "2T", "4T", "4T", "", "3T", "3T", "", "1T", "1T", "", "4N", "4N", "", "3N", "3N", "", "2DN", "2DN", "1N", "1N", "", "5NT", "5NT", ""],
+            ["MANERA BENEDETTO", "", "4I", "4I", "2L", "2L", "", "4L", "4L", "", "2I", "2I", "", "3I", "3I", "", "3L", "3L", "", "1L", "1L", "", "1I", "1I", "", "5L", "5L"],
+            ["MARINI ANDREA", "", "3L", "3L", "", "3I", "3I", "", "3L", "3L", "", "3I", "3I", ""],
+            ["MARROCCO LUIGI", "", "1V", "1V", "", "1A", "1A", "", "2DN", "2DN", "", "2DN", "2DN", "1V", "1V", "", "1V", "1V", "", "1A", "1A", "", "1A", "1A", "2DN", "2DN"],
+            ["MENGHI RITA", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", ""],
+            ["MESSANA CRISTINA", "", "3A", "2A", "2A", "", "1B", "1T", "", "3A", "3A", "", "1B", "1B", "3A", "2A", "", "2A", "", "1B", "1D", ""],
+            ["MIRABILE FABRIZIO", "", "4P", "4P", "4N", "4N", "", "4N", "", "4P", "", "4N", "4N", "4N", "4N", "", "4P", "4P", "4N", "4N", "", "4P", "4P", "", "4P", "4P"],
+            ["NASTO MONIA", "", "4A", "3A", "1N", "", "2A", "1A", "1B", "1A", "", "5A", "1N", "", "1B", "", "5A", "2A", "3A", "4A", "1A", "2A", "", "5A", "4A", "3A", "1B", "1N"],
+            ["NUCIFORA CLAUDIO", "", "1N", "2L", "2N", "2L", "2L", "2I", "2P", "", "2N", "", "2L", "", "2I", "2D", "1D", "1P", "1N", "2I", "", "1P", "", "2I", "2D", "2P", "1D"],
+            ["OSSO ELVIRA", "", "", "", "", "1N", "2N", "1B", "1D", "", "1A", "2A", "", "2D", "", "2P", "1P"],
+            ["PALLINI SIMONE", "", "1L", "5I", "5L", "", "1T", "1J", "1L", "2I", "5I", "2L", "1I", "1J", "", "1I", "1V", "", "5L", "5L", "2L", "5I", "2I", "", "1V", "1T"],
+            ["PAPANDREA MARIA CRISTINA", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", ""],
+            ["PETITO FRANCESCO", "", "3A", "2DN", "5P", "5D", "3D", "", "1A", "2A", "4P", "", "1D", "5I", "3P", "", "3L", "2L", "", "1L", "4A", "", "1P", "", "2P", "", "5A"],
+            ["PETRELLA GIULIA", "", "4J", "2J", "", "3J", "X", "3J", "5J", "1J", "X", "", "5J", "4J", "3J", "", "4J", "1J", "2J", "5J", "", "X", "2J", "", "1J"],
+            ["POMINELLI ANGELA", "", "2I", "2I", "5L", "", "1L", "", "2I", "", "1L", "", "3I", "5L", "5L", "2I", "2I", "", "2I", "", "3I", "", "3I", "3I", "2I", "5L", "1L"],
+            ["POZZI ACHILLE", "", "5P", "", "1P", "", "4P", "2P", "3I", "1P", "5P", "", "2P", "2I", "4I", "4P", "", "2P", "2P", "5P", "", "4P", "4P", "", "1P", "1P"],
+            ["QUERCIA TERESA", "", "", "", "", "5I", "1L", "5T", "4T", "", "1L", "4T", "", "5T", "5I", "", "4T", "", "1L", "5I", "5T"],
+            ["REDAELLI ANNA", "", "3T", "3T", "1S", "", "2S", "1S", "1S", "", "3T", "3T", "2S", "2S", "", "2S", "1S", "1S", "3T", "", "2S", "2S", "1S", "", "3T"],
+            ["RINALDI DAMIANO", "", "2J", "4T", "3T", "1J", "", "4J", "", "1V", "4T", "", "2T", "", "3J", "2J", "", "4J", "1T", "1J", "2T", "", "3T", "", "3J", "1T", "1V"],
+            ["RUSSO ENRICA", "", "4I", "5I", "", "4I", "4I", "5L", "5L", "", "5I", "", "4L", "", "5I", "5I", "5L", "4L", "", "4I", "5L", "4L", "4L"],
+            ["SANTAMBROGIO ANNA", "", "3A", "3I", "5A", "3I", "1D", "3A", "", "4A", "5A", "", "4A", "1I", "2DN", "", "4A", "1I", "3A", "", "D", "", "1I", "5A", "3I"],
+            ["SAVINO SARA", "", "2A", "2A", "", "3A", "3A", "", "2A", "2A", "3A", "3A", "", "3A", "3A", "", "2A", "2A"],
+            ["SCORTA ANDREA", "", "3A", "3A", "4A", "4A", "1B", "1B", "", "2A", "2A", "", "5D", "5D", "1D", "1D", "5A", "5A", "", "1A", "1A", "3D", "3D"],
+            ["SCUFFI GIUSEPPINA", "", "", "3L", "4L", "5L", "5I", "", "5L", "3L", "4L", "5I"],
+            ["SERRADORI SILVIA", "", "5T", "5J", "", "4J", "4J", "3T", "3T", "3J", "3J", "", "5T", "5T", "5J", "5J", "5S", "", "4T", "4T", "3T", "4J", "", "3J", "", "5S", "5S", "4T"],
+            ["SFERRAGATTA MARIO", "", "2P", "2P", "D", "", "1V", "1V", "", "1S", "1S", "D", "", "5I", "5I", "1P", "", "X", "X", "", "D", "D", "1P", "", "2S", "2S"],
+            ["SGHERZI FEDERICA", "", "4J", "4J", "3J", "", "4J", "5J", "5J", "", "5J", "4J", "4J", "", "3J", "3J", "", "3J", "3J", "", "5J", "5J", "4J", "", "5J", "3J"],
+            ["SGRÒ VINCENZO", "", "1N", "1N", "", "1S", "", "1P", "2S", "", "1P", "1P", "", "1D", "1D", "", "2S", "1S", "1N", ""],
+            ["SIMONE MICHELE", "", "4L", "1L", "", "3L", "3L", "D", "", "4L", "4L", "", "1L", "1L", "2L", "", "1L", "3L", "2L", "", "2L", "2L", "D", "", "3L", "4L"],
+            ["SIRTORI MADDALENA", "", "1L", "1L", "2L", "2I", "", "2L", "4I", "4I", "", "2I", "", "3I", "3I"],
+            ["SOLANO EMANUELA", "", "1A", "", "1B", "2P", "", "2A", "", "X", "X", "1N", "", "2N", "1P"],
+            ["TAGLIALATELA IDA", "", "5D", "3N", "3N", "4N", "", "4N", "3N", "5D", "", "3N", "5D", "5D", "", "4N", "4N", "3N", "4N", "5D", "", "4N", "3N", "5D"],
+            ["TENTORI CLARA", "", "4P", "5P", "5P", "", "3N", "3N", "3N", "3N", "X", "4P", "", "X", "X", "", "5P", "5P", "", "X", "X", "", "5P", "5P", "5P"],
+            ["TEOFILO SILVIA", "", "1P", "1P", "", "4P", "4P", "2T", "2T", "4P", "", "2T", "", "1P", "1P", "4P", "", "1P", "1P", "2T", "", "2T", "2T", "4P", "4P"],
+            ["TERRANA ANGELA", "", "5N", "4N", "4N", "3N", "", "1S", "1N", "1N", "2S", "2T", "", "5N", "5N", "1N", "", "1N", "4N", "", "3N", "", "3N", "3N", "4N", "1J"],
+            ["TODDE CLAUDIO", "", "3D", "3D", "", "5D", "5D", "", "5D", "5D", "", "1D", "1D", "", "3D", "3D", "3D", "3D", "3D", "5D", "5D", "", "5D", "5D", "2A"],
+            ["TONIAL MARICA", "", "4L", "4L", "5I", "5I", "", "1L", "", "5I", "4I", "4I", "", "4L", "4L", "", "1B", "1B", "4I", "4I", "4L", "", "1L", "1L", "5I", "5I", "4I"],
+            ["VERGA ELENA", "", "5S", "5S", "5J", "5J", "", "3J", "3J", "", "4P", "4P", "", "1J", "1J", "2J", "2J", "", "5P", "5P", "", "3P", "3P", "4J", "4J"],
+            ["VIOLA ANGELA", "", "1I", "1I", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", ""],
+            ["ZAPPA ALESSANDRO", "", "5N", "4P", "5P", "", "5N", "5N", "D", "", "3P", "", "5P", "5P", "5P", "4P", "D", "", "5N", "3P", "", "3P", "3P", "4P", "4P"],
+            ["ZINGALES SALVATORE", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", ""],
+            ["ZUCCARO ADRIANO", "", "3P", "3P", "5A", "5A", "", "3P", "3P", "", "2P", "2P", "", "5A", "5A", "", "5A", "5A", "3P", "3P", "2P", "2P", "", "2P", "2P", ""],
+            ["ZUCCONELLI MARISA", "", "UT", "UT", "UT", "UT", "", "UT", "UT", "UT", "", "UT", "UT", "UT", "UT", "", "UT", "UT", "UT", "", "UT", "UT", "UT", "UT", ""]
+        ];
+
+        const DADA_CLASSES = new Set([
+            "3A", "4A", "5A", "3D", "5D", "1I", "2I", "3I", "4I", "5I", "1L", "2L", "3L", "4L", "5L", "3N", "4N", "5N", "3P", "4P", "5P"
+        ]);
+        
+        // Maps DADA classes to the areas where students are likely to be during the break.
+        const CORRIDOR_AREAS = [
+            { area: "PIANO TERRA - ATRIO/CORRIDOIO A", classes: ["5A", "5D", "5I", "5L", "5N", "5P"] },
+            { area: "PIANO TERRA - CORRIDOIO D", classes: ["5A", "5D", "5I", "5L", "5N", "5P"] },
+            { area: "1° PIANO - CORRIDOIO A/B", classes: ["1I", "1L", "2I", "2L"] },
+            { area: "1° PIANO - CORRIDOIO D/E", classes: ["1I", "1L", "2I", "2L"] },
+            { area: "2° PIANO - CORRIDOIO A/B", classes: ["3A", "3D", "3I", "3L", "3N", "3P", "4A", "4I", "4L", "4N", "4P"] },
+            { area: "2° PIANO - CORRIDOIO D/E", classes: ["3A", "3D", "3I", "3L", "3N", "3P", "4A", "4I", "4L", "4N", "4P"] },
+        ];
+
+        const DAYS = ["LUNEDÌ", "MARTEDÌ", "MERCOLEDÌ", "GIOVEDÌ", "VENERDÌ"];
+        
+        // I1 (9:45-9:55) -> Preceding Hour 2 (Index 2 in row data)
+        // I2 (12:45-13:00) -> Preceding Hour 5 (Index 5 in row data)
+        const INTERVALS = [
+            { name: "I1 (9:45-9:55)", hourIndex: 2 }, // Corresponds to array index 2 (Hour 2: 8:50-9:45)
+            { name: "I2 (12:45-13:00)", hourIndex: 5 }  // Corresponds to array index 5 (Hour 5: 11:50-12:45)
+        ];
+
+        // Column mapping based on the array structure: [TeacherName, H1, H2, H3, H4, H5, H6, H7, H1_M, ...]
+        const getColumnIndex = (dayIndex, hourIndex) => {
+            // Teacher name is index 0. Hour indices are 1-7.
+            // DayIndex: 0 (Lun) -> 0 * 7 + hourIndex
+            // DayIndex: 1 (Mar) -> 1 * 7 + hourIndex
+            // The hour index (1-7) maps directly to the column index (1-7) within the day block.
+            // Total Column Index = (DayIndex * 7) + HourIndex
+            return (dayIndex * 7) + hourIndex;
+        };
+
+        let FINAL_SORVEGLIANZE_PLAN = [];
+
+        // --- AUTHENTICATION LOGIC ---
+
+        const HASHED_PASS = Array.from("sorveglianza2025").map(c => c.charCodeAt(0) + 1).join('');
+
+        function handleLogin(event) {
+            event.preventDefault();
+            const password = document.getElementById('password').value;
+            const statusEl = document.getElementById('auth-status');
             
-            // Separa i codici classe (es. "5J 3D" -> ["5J", "3D"])
-            const classes = classCode.split(' ').filter(c => c.length > 0 && c.length <= 3 && c[0].match(/[1-5]/));
-            
-            // Se ci sono classi, usa la mappatura, altrimenti 'Non Assegnato'
-            if (classes.length > 0) {
-                // Per semplicità, mappiamo solo la prima classe trovata in una zona
-                const zone = CLASS_TO_ZONE[classes[0]] || 'Non Assegnato';
-                if (zone !== 'Non Assegnato') return zone;
+            // Simple obfuscated check
+            const checkHash = Array.from(password).map(c => c.charCodeAt(0) + 1).join('');
+
+            if (checkHash === HASHED_PASS) {
+                statusEl.textContent = 'Accesso consentito. Caricamento dashboard...';
+                statusEl.classList.remove('text-red-500');
+                statusEl.classList.add('text-green-600');
+                setTimeout(window.showDashboard, 500);
+            } else {
+                statusEl.textContent = 'Password non valida.';
+                statusEl.classList.remove('hidden');
+                statusEl.classList.add('text-red-500');
             }
-            
-            // Gestione speciale per codici non-classe (D, X, UT, LAB)
-            return CLASS_TO_ZONE[classCode] || 'Non Assegnato';
         }
 
-        function calculateAssignments() {
-            ASSIGNMENTS = {};
-            teacherStats = {};
-            let totalAssignments = 0;
+        // --- CORE LOGIC (Advanced Mathematical System) ---
 
-            const daysMap = { 0: "LUNEDI'", 1: "MARTEDI'", 2: "MERCOLEDI'", 3: "GIOVEDI'", 4: "VENERDI'" };
+        /**
+         * Checks if a class is a DADA class.
+         * @param {string} classCode 
+         * @returns {boolean}
+         */
+        function isDadaClass(classCode) {
+            if (!classCode) return false;
+            // Clean up any extraneous characters (e.g., '5J' is not DADA, '5A' is DADA)
+            const cleanCode = classCode.replace(/[^A-Za-z0-9]/g, '');
+            return DADA_CLASSES.has(cleanCode);
+        }
+
+        /**
+         * The main calculation logic for assigning teachers to surveillance areas.
+         */
+        function startCalculation() {
+            document.getElementById('start-btn').disabled = true;
+            document.getElementById('start-btn').textContent = 'Calcolo in corso...';
+            document.getElementById('pdf-btn').disabled = true;
+            document.getElementById('excel-btn').disabled = true;
             
-            // Progress tracker setup
-            const totalSteps = DAYS.length * 2 * Object.keys(CLASS_TO_ZONE).length; // Stima approssimativa
+            FINAL_SORVEGLIANZE_PLAN = [];
+            let totalAssignments = 0;
+            let teachersInvolved = new Set();
+            const teacherLoad = {}; // Track how many times a teacher is assigned
+            const sorveglianzeBody = document.getElementById('sorveglianze-body');
+            sorveglianzeBody.innerHTML = '';
+            
+            const totalSteps = DAYS.length * INTERVALS.length * CORRIDOR_AREAS.length;
             let currentStep = 0;
 
-            for (let dayIndex = 0; dayIndex < DAYS.length; dayIndex++) {
-                const dayName = daysMap[dayIndex];
-                ASSIGNMENTS[dayName] = {};
-
-                // Loop per i due intervalli
-                ['H2', 'H5'].forEach(hourKey => {
-                    const hourIndex = HOUR_INDICES[hourKey][dayIndex];
-                    const intervalInfo = HOUR_MAP[hourKey];
-                    const intervalName = intervalInfo.interval;
-
-                    ASSIGNMENTS[dayName][intervalName] = {};
-                    
-                    // 1. Identifica i candidati raggruppati per zona
-                    const candidatesByZone = {};
-
-                    Object.entries(TEACHER_TIMETABLE_DATA).forEach(([teacher, schedule]) => {
-                        const classCodeRaw = schedule[hourIndex];
+            // Simple async simulation to show progress bar
+            const simulateCalculation = (dayIndex, intervalIndex, areaIndex) => {
+                return new Promise(resolve => {
+                    setTimeout(() => {
+                        const day = DAYS[dayIndex];
+                        const interval = INTERVALS[intervalIndex];
+                        const area = CORRIDOR_AREAS[areaIndex];
                         
-                        // Incremento progress bar
-                        currentStep++;
-                        updateProgressBar(currentStep, totalSteps, `Analisi ${teacher} - ${dayName} (${hourKey})`);
-
-                        if (!classCodeRaw || ['D', 'X', 'UT'].includes(classCodeRaw)) {
-                            return; // Docente non disponibile o non in classe
-                        }
-
-                        // Pulizia e analisi multi-classe (es. '5J 3D' o '1A A.19')
-                        const classCodes = classCodeRaw.split(/[\s,]+/g).filter(c => c.length > 0);
+                        // 1. Find all eligible teachers (taught a DADA class in the preceding hour)
+                        const precedingColIndex = getColumnIndex(dayIndex, interval.hourIndex);
                         
-                        classCodes.forEach(classCode => {
-                            const zone = getZone(classCode);
-                            if (zone === 'Non Assegnato') return;
-
-                            const isDada = DADA_CLASSES.has(classCode);
+                        const eligibleTeachers = [];
+                        
+                        TEACHERS_TIMETABLE.forEach(row => {
+                            const teacherName = row[0];
+                            const classInPrecedingHour = row[precedingColIndex];
                             
-                            // Score: 2 for DADA class, 1 for non-DADA class
-                            const score = isDada ? 2 : 1; 
-
-                            if (!candidatesByZone[zone]) {
-                                candidatesByZone[zone] = [];
+                            if (isDadaClass(classInPrecedingHour) && area.classes.includes(classInPrecedingHour)) {
+                                // Priority 1: Taught an *associated DADA class* in this area
+                                eligibleTeachers.push({ name: teacherName, priority: 1, load: teacherLoad[teacherName] || 0 });
+                            } else if (classInPrecedingHour === '' || classInPrecedingHour === 'D' || classInPrecedingHour === 'X') {
+                                // Priority 2: Teacher is Free (Disposizione, or Not Assigned/Free)
+                                eligibleTeachers.push({ name: teacherName, priority: 2, load: teacherLoad[teacherName] || 0 });
                             }
-                            
-                            // Evita duplicati di docenti nella stessa zona per la stessa ora
-                            if (!candidatesByZone[zone].some(c => c.teacher === teacher)) {
-                                candidatesByZone[zone].push({ teacher, score, isDada, classCode, classCodeRaw });
-                            }
-                        });
-                    });
-
-                    // 2. Assegna max 2 docenti per zona
-                    Object.entries(candidatesByZone).forEach(([zone, candidates]) => {
-                        // Ordina i candidati: DADA (score 2) prima di Non-DADA (score 1), poi alfabeticamente
-                        candidates.sort((a, b) => {
-                            if (b.score !== a.score) {
-                                return b.score - a.score; // Score più alto prima
-                            }
-                            return a.teacher.localeCompare(b.teacher); // Alfabeticamente come tie-breaker
+                            // All other classes (non-DADA or DADA in another area) are ignored for assignment.
                         });
 
-                        // Seleziona i primi 2
-                        const assignedTeachers = candidates.slice(0, 2);
+                        // 2. Sort and select the top 2 teachers
+                        // Sort by: Priority (1 first), then by Load (less assignments first)
+                        eligibleTeachers.sort((a, b) => a.priority - b.priority || a.load - b.load);
                         
-                        // Assegna e aggiorna le statistiche
-                        if (assignedTeachers.length > 0) {
-                            ASSIGNMENTS[dayName][intervalName][zone] = assignedTeachers;
-                            totalAssignments += assignedTeachers.length;
+                        const selectedTeachers = eligibleTeachers
+                            .map(t => t.name)
+                            .filter((name, index, self) => self.indexOf(name) === index) // Unique
+                            .slice(0, 2);
 
-                            assignedTeachers.forEach(assignment => {
-                                teacherStats[assignment.teacher] = (teacherStats[assignment.teacher] || 0) + 1;
+                        // 3. Record the assignment
+                        if (selectedTeachers.length > 0) {
+                            const assignment = {
+                                day: day,
+                                interval: interval.name,
+                                area: area.area,
+                                docent1: selectedTeachers[0] || 'NON ASSEGNATO',
+                                docent2: selectedTeachers[1] || 'NON ASSEGNATO',
+                            };
+                            FINAL_SORVEGLIANZE_PLAN.push(assignment);
+                            totalAssignments += (selectedTeachers.length > 0 ? 1 : 0);
+                            selectedTeachers.forEach(name => {
+                                teachersInvolved.add(name);
+                                teacherLoad[name] = (teacherLoad[name] || 0) + 1;
                             });
+
+                            // 4. Update UI in "real-time"
+                            const row = sorveglianzeBody.insertRow();
+                            row.className = 'hover:bg-indigo-50 transition duration-150';
+                            row.innerHTML = `
+                                <td class="px-4 py-3 whitespace-nowrap font-medium text-gray-900">${assignment.day}</td>
+                                <td class="px-4 py-3 whitespace-nowrap text-gray-700">${assignment.interval}</td>
+                                <td class="px-4 py-3 whitespace-nowrap font-semibold text-indigo-600">${assignment.area}</td>
+                                <td class="px-4 py-3 whitespace-nowrap text-green-700">${assignment.docent1}</td>
+                                <td class="px-4 py-3 whitespace-nowrap text-green-700">${assignment.docent2}</td>
+                            `;
                         }
-                    });
-
+                        
+                        // Update progress
+                        currentStep++;
+                        const progress = Math.round((currentStep / totalSteps) * 100);
+                        document.getElementById('progress-bar').style.width = `${progress}%`;
+                        document.getElementById('total-assignments').textContent = totalAssignments;
+                        document.getElementById('involved-teachers').textContent = teachersInvolved.size;
+                        
+                        resolve();
+                    }, 10); // Throttle calculation to show progress bar movement
                 });
-            }
-
-            // Aggiorna la UI con i totali
-            document.getElementById('totalAssignments').textContent = totalAssignments;
-            document.getElementById('involvedTeachers').textContent = Object.keys(teacherStats).length;
-
-            renderAssignments();
-            document.getElementById('startButton').classList.add('hidden');
-            document.getElementById('progressContainer').classList.add('hidden');
-            document.getElementById('exportPdfButton').disabled = false;
-            document.getElementById('exportExcelButton').disabled = false;
-        }
-
-        // --- UI RENDERING AND EXPORT ---
-
-        function updateProgressBar(current, total, text) {
-            const percentage = Math.round((current / total) * 100);
-            document.getElementById('progressBar').style.width = percentage + '%';
-            document.getElementById('progressText').textContent = `${text} (${percentage}%)`;
-        }
-
-        function startLogic() {
-            document.getElementById('progressContainer').classList.remove('hidden');
-            updateProgressBar(0, 100, "Inizio calcolo...");
-            // Uso setTimeout per permettere alla UI di aggiornarsi prima del calcolo intensivo
-            setTimeout(calculateAssignments, 100); 
-        }
-
-        function renderTimetableIndex() {
-            const table = document.getElementById('timetableTable');
-            let html = '<thead class="bg-gray-50 border-b">';
-            
-            // Intestazione giorni e ore
-            html += '<tr><th class="px-2 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider sticky left-0 bg-gray-50 z-10">Docente</th>';
-            DAYS.forEach(day => {
-                html += `<th colspan="7" class="text-center px-4 py-3 text-xs font-bold text-gray-500 uppercase tracking-wider border-l">${day}</th>`;
-            });
-            html += '</tr>';
-
-            // Intestazione ore
-            html += '<tr><th class="px-2 py-3 text-left text-xs font-bold text-gray-500 uppercase sticky left-0 bg-gray-50 z-10"></th>';
-            for (let i = 0; i < 5; i++) {
-                html += `<th class="rotated-header">8:00 - 8:50</th><th class="rotated-header">8:50 - 9:45 (I1)</th><th class="rotated-header">9:55 - 10:50</th><th class="rotated-header">10:50 - 11:50</th><th class="rotated-header">11:50 - 12:45 (I2)</th><th class="rotated-header">13:00 - 13:50</th><th class="rotated-header">13:50 - 14:40</th>`;
-            }
-            html += '</tr></thead>';
-
-            // Corpo della tabella
-            html += '<tbody class="bg-white divide-y divide-gray-200">';
-            Object.entries(TEACHER_TIMETABLE_DATA).forEach(([teacher, schedule]) => {
-                html += `<tr><td class="px-2 py-2 whitespace-nowrap text-sm font-medium text-gray-900 sticky left-0 bg-white">${teacher}</td>`;
-                // Assicurati che l'array abbia 35 elementi (5 giorni * 7 ore)
-                const fullSchedule = Array(35).fill(null).map((_, i) => schedule[i] || '-');
-                fullSchedule.forEach((hour, index) => {
-                    let classes = (hour || '-').toString();
-                    let bgColor = 'bg-white';
-                    if (classes === 'D' || classes === 'X') bgColor = 'bg-red-100';
-                    if (classes === 'UT') bgColor = 'bg-yellow-100';
-                    if (classes !== '-' && classes.length > 1 && classes !== 'D' && classes !== 'X' && classes !== 'UT') {
-                        bgColor = DADA_CLASSES.has(classes.split(/[\s,]+/g)[0]) ? 'bg-indigo-50' : 'bg-green-50';
-                    }
-                    
-                    // Highlight ore intervallo
-                    if (HOUR_INDICES['H2'].includes(index) || HOUR_INDICES['H5'].includes(index)) {
-                        bgColor = 'bg-purple-100';
-                    }
-
-                    html += `<td class="text-xs text-center border ${bgColor} font-mono">${classes}</td>`;
-                });
-                html += '</tr>';
-            });
-            html += '</tbody>';
-            table.innerHTML = html;
-        }
-
-        function renderAssignments() {
-            const container = document.getElementById('resultsContainer');
-            container.innerHTML = '';
-            
-            // Array di colori per le zone (per eleganza)
-            const zoneColors = {
-                'PT - Corridoio A (Biennio)': 'border-blue-500 bg-blue-50',
-                '1P - Corridoio B/D (Triennio DADA)': 'border-green-500 bg-green-50',
-                '2P - Corridoio A/E (Quinquennio DADA)': 'border-red-500 bg-red-50'
             };
 
-            Object.entries(ASSIGNMENTS).forEach(([dayName, dayData]) => {
-                let dayHtml = `<div class="bg-white p-6 rounded-xl shadow-xl">
-                    <h3 class="text-2xl font-extrabold text-indigo-700 mb-6">${dayName}</h3>`;
-
-                Object.entries(dayData).forEach(([intervalName, intervalData]) => {
-                    dayHtml += `<div class="mb-8">
-                        <h4 class="text-xl font-bold text-gray-700 mb-4 border-b pb-2">${intervalName}</h4>
-                        <div class="space-y-4">`;
-
-                    // Ordina le zone per una visualizzazione coerente
-                    const zones = Object.keys(intervalData).sort();
-
-                    zones.forEach(zone => {
-                        const assignments = intervalData[zone];
-                        const zoneClass = zoneColors[zone] || 'border-gray-500 bg-gray-50';
-
-                        dayHtml += `<div class="${zoneClass} p-4 rounded-lg border-l-4 shadow-sm">
-                            <p class="text-lg font-semibold text-gray-800">${zone} (${assignments.length} Docenti Assegnati)</p>
-                            <ul class="list-disc ml-5 mt-2 space-y-1">`;
-                        
-                        assignments.forEach(a => {
-                            const dadaLabel = a.isDada ? '<span class="text-xs font-semibold px-2 py-0.5 rounded-full bg-indigo-200 text-indigo-800">DADA</span>' : '';
-                            dayHtml += `<li class="text-gray-600">
-                                <strong>${a.teacher}</strong> (Classe Precedente: ${a.classCodeRaw}) ${dadaLabel}
-                            </li>`;
-                        });
-
-                        dayHtml += `</ul></div>`;
-                    });
-
-                    dayHtml += `</div></div>`;
-                });
-
-                dayHtml += `</div>`;
-                container.innerHTML += dayHtml;
-            });
-        }
-
-        // --- EXPORT FUNCTIONS ---
-
-        function exportToPDF() {
-            const { jsPDF } = window.jspdf;
-            const doc = new jsPDF('p', 'pt', 'a4');
-            const margin = 40;
-            const pageWidth = doc.internal.pageSize.getWidth();
-            let y = margin;
-
-            doc.setFontSize(22);
-            doc.setFont('helvetica', 'bold');
-            doc.text("Report Sorveglianze Scolastiche", margin, y);
-            y += 30;
-
-            doc.setFontSize(10);
-            doc.setFont('helvetica', 'normal');
-            doc.text(`Generato il: ${new Date().toLocaleDateString('it-IT')}`, margin, y);
-            y += 20;
-            
-            doc.setFontSize(12);
-            doc.setFont('helvetica', 'bold');
-            doc.text(`Totale Sorveglianze Assegnate: ${document.getElementById('totalAssignments').textContent}`, margin, y);
-            y += 15;
-            doc.text(`Docenti Coinvolti: ${document.getElementById('involvedTeachers').textContent}`, margin, y);
-            y += 30;
-
-            doc.setFont('helvetica', 'normal');
-
-            Object.entries(ASSIGNMENTS).forEach(([dayName, dayData]) => {
-                doc.addPage();
-                y = margin;
-                doc.setFontSize(18);
-                doc.setFont('helvetica', 'bold');
-                doc.text(`Giorno: ${dayName}`, margin, y);
-                y += 25;
-
-                Object.entries(dayData).forEach(([intervalName, intervalData]) => {
-                    if (y > doc.internal.pageSize.getHeight() - margin) {
-                        doc.addPage();
-                        y = margin;
+            const runAllSteps = async () => {
+                for (let d = 0; d < DAYS.length; d++) {
+                    for (let i = 0; i < INTERVALS.length; i++) {
+                        for (let a = 0; a < CORRIDOR_AREAS.length; a++) {
+                            await simulateCalculation(d, i, a);
+                        }
                     }
+                }
+                
+                // Finalize
+                document.getElementById('start-btn').disabled = false;
+                document.getElementById('start-btn').textContent = 'Ricalcola Sorveglianze';
+                document.getElementById('pdf-btn').disabled = false;
+                document.getElementById('excel-btn').disabled = false;
+                
+                // Save plan to Firebase (calling the exposed function)
+                window.savePlanToFirestore(FINAL_SORVEGLIANZE_PLAN, teachersInvolved);
 
-                    doc.setFontSize(14);
-                    doc.setFont('helvetica', 'bold');
-                    doc.text(intervalName, margin, y);
-                    y += 20;
+                if (sorveglianzeBody.innerHTML === '') {
+                    sorveglianzeBody.innerHTML = '<tr class="bg-gray-50"><td colspan="5" class="px-4 py-4 text-center text-gray-500 italic">Nessuna sorveglianza assegnata secondo i criteri.</td></tr>';
+                }
+            };
+            
+            runAllSteps();
+        }
 
-                    const tableData = [];
-                    const headers = [
-                        ['Zona', 'Docente 1', 'Classe D1', 'Docente 2', 'Classe D2']
-                    ];
+        // --- UI RENDERING & EXPORT ---
+
+        function renderTimetable() {
+            const tbody = document.getElementById('timetable-body');
+            tbody.innerHTML = '';
+
+            TEACHERS_TIMETABLE.forEach(row => {
+                const teacherName = row[0];
+                const tr = tbody.insertRow();
+                
+                // Teacher Name (Sticky Column)
+                const nameCell = tr.insertCell();
+                nameCell.textContent = teacherName;
+                nameCell.className = 'px-4 py-2 whitespace-nowrap font-medium text-gray-900 sticky left-0 z-10 bg-white border-r';
+
+                // Hour Cells
+                for (let i = 1; i < row.length; i++) {
+                    const classCode = row[i];
+                    const cell = tr.insertCell();
+                    cell.textContent = classCode || '-';
+                    cell.className = 'px-2 py-2 text-center border-l border-gray-100';
+
+                    // Highlight DADA classes
+                    if (isDadaClass(classCode)) {
+                        cell.classList.add('bg-indigo-100', 'font-semibold', 'text-indigo-800');
+                    } 
                     
-                    Object.entries(intervalData).forEach(([zone, assignments]) => {
-                        const row = [
-                            zone,
-                            assignments[0] ? assignments[0].teacher : '-',
-                            assignments[0] ? assignments[0].classCodeRaw : '-',
-                            assignments[1] ? assignments[1].teacher : '-',
-                            assignments[1] ? assignments[1].classCodeRaw : '-'
-                        ];
-                        tableData.push(row);
-                    });
+                    // Highlight preceding hours for I1 (index 2, 9, 16, 23, 30) and I2 (index 5, 12, 19, 26, 33)
+                    if (INTERVALS.some(int => getColumnIndex(Math.floor((i - 1) / 7), int.hourIndex) === i)) {
+                         cell.classList.add('bg-yellow-200');
+                    }
+                }
+            });
+        }
 
-                    doc.autoTable({
-                        startY: y,
-                        head: headers,
-                        body: tableData,
-                        theme: 'grid',
-                        headStyles: { fillColor: [59, 130, 246] },
-                        styles: { fontSize: 8, cellPadding: 5 },
-                        margin: { left: margin, right: margin }
-                    });
+        // --- PDF Generation (using jsPDF-Autotable) ---
+        
+        function generatePDF() {
+            if (typeof window.jspdf === 'undefined') {
+                console.error("jsPDF non è caricato. Impossibile generare il PDF.");
+                document.getElementById('modal-message').textContent = 'Errore: Libreria jsPDF non caricata.';
+                document.getElementById('modal-success').classList.remove('hidden');
+                return;
+            }
 
-                    y = doc.autoTable.previous.finalY + 10;
-                });
+            const { jsPDF } = window.jspdf;
+            const doc = new jsPDF('l', 'mm', 'a4'); // Landscape A4
+
+            // PDF Title
+            doc.setFontSize(18);
+            doc.text("Piano Settimanale di Sorveglianza Intervalli", 148.5, 20, { align: 'center' });
+            doc.setFontSize(10);
+            doc.text(`Generato: ${new Date().toLocaleDateString('it-IT')}`, 148.5, 25, { align: 'center' });
+            
+            // Prepare data for autoTable
+            const headers = [
+                { title: "Giorno", dataKey: "day" },
+                { title: "Intervallo", dataKey: "interval" },
+                { title: "Area (Piano/Corridoio)", dataKey: "area" },
+                { title: "Docente 1", dataKey: "docent1" },
+                { title: "Docente 2", dataKey: "docent2" },
+            ];
+
+            // AutoTable generation
+            doc.autoTable({
+                startY: 35,
+                head: [headers.map(h => h.title)],
+                body: FINAL_SORVEGLIANZE_PLAN.map(p => [p.day, p.interval, p.area, p.docent1, p.docent2]),
+                theme: 'striped',
+                headStyles: { 
+                    fillColor: [76, 81, 191], // Indigo-600 color
+                    fontSize: 9,
+                    fontStyle: 'bold'
+                },
+                styles: { 
+                    fontSize: 8,
+                    cellPadding: 2,
+                },
+                columnStyles: {
+                    2: { cellWidth: 80 } // Wider column for area description
+                }
             });
 
-            doc.save("Report_Sorveglianze.pdf");
+            doc.save('Piano_Sorveglianze.pdf');
+            
+            document.getElementById('modal-message').textContent = 'Il file Piano_Sorveglianze.pdf è stato generato e scaricato.';
+            document.getElementById('modal-success').classList.remove('hidden');
         }
-        
-        function exportToExcel() {
+
+        // --- CSV Generation (Excel) ---
+
+        function generateCSV() {
             let csvContent = "data:text/csv;charset=utf-8,";
             
-            // Header
-            csvContent += "Giorno,Intervallo,Zona di Sorveglianza,Docente 1,Classe Precedente D1,Docente 2,Classe Precedente D2\n";
+            // Headers
+            csvContent += "Giorno;Intervallo;Area (Piano/Corridoio);Docente 1;Docente 2\n";
 
-            Object.entries(ASSIGNMENTS).forEach(([dayName, dayData]) => {
-                Object.entries(dayData).forEach(([intervalName, intervalData]) => {
-                    Object.entries(intervalData).forEach(([zone, assignments]) => {
-                        const d1 = assignments[0] || {};
-                        const d2 = assignments[1] || {};
-                        
-                        const row = [
-                            dayName,
-                            intervalName,
-                            zone,
-                            d1.teacher || '',
-                            d1.classCodeRaw || '',
-                            d2.teacher || '',
-                            d2.classCodeRaw || ''
-                        ].map(field => `"${field.replace(/"/g, '""')}"`).join(',');
-                        
-                        csvContent += row + "\n";
-                    });
-                });
+            // Data rows
+            FINAL_SORVEGLIANZE_PLAN.forEach(assignment => {
+                const row = [
+                    assignment.day,
+                    assignment.interval,
+                    assignment.area,
+                    assignment.docent1,
+                    assignment.docent2
+                ].join(';');
+                csvContent += row + "\n";
             });
 
-            // Download logic
             const encodedUri = encodeURI(csvContent);
             const link = document.createElement("a");
             link.setAttribute("href", encodedUri);
-            link.setAttribute("download", "Report_Sorveglianze.csv");
+            link.setAttribute("download", "Piano_Sorveglianze.csv");
             document.body.appendChild(link); // Required for Firefox
             link.click();
             document.body.removeChild(link);
+            
+            document.getElementById('modal-message').textContent = 'Il file Piano_Sorveglianze.csv (Excel) è stato generato e scaricato.';
+            document.getElementById('modal-success').classList.remove('hidden');
         }
+
+        // Initial setup on load (will be overwritten by auth check if successful)
+        document.addEventListener('DOMContentLoaded', () => {
+            renderTimetable(); // Pre-load the empty/initial timetable view
+        });
+
     </script>
 </body>
 </html>
