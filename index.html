@@ -1,0 +1,1234 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gestione Sorveglianze - ISTCG Primo Levi</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- jsPDF per esportazione PDF -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
+    
+    <!-- SheetJS (xlsx) per esportazione Excel -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+
+    <!-- Firebase SDKs (verranno inizializzati con le variabili d'ambiente) -->
+    <script type="module">
+        // Importa le funzioni necessarie
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAnalytics } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-analytics.js";
+        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged, setPersistence, inMemoryPersistence } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, doc, getDoc, setDoc, onSnapshot, setLogLevel } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        // --- INIZIO DATI ORARIO FORNITI ---
+        // Ho inserito qui i dati dell'orario che hai fornito.
+        const rawOrarioData = `
+		lunedì							martedì							mercoledì							giovedì							venerdì
+8:00	8:50	9:55	10:50	11:50	13:00	13:50	8:00	8:50	9:55	10:50	11:50	13:00	13:50	8:00	8:50	9:55	10:50	11:50	13:00	13:50	8:00	8:50	9:55	10:50	11:50	13:00	13:50	8:00	8:50	9:55	10:50	11:50	13:00	13:50
+ABBIATI CHIARA		x	x	5J	3T	2J	4J	x	5J	3J	x	1J	2J	3T	x	4J	3J	x	x	x	x	x	x	4J	5J	2J	3T	1J	x	x	x	x	x	3J	1J	x
+ARCARA MATTEO		x	x	x	x	x	x	x	x	x	x	x	x	x	x	x	x	x	x	x	x	x	1S	3I	5S	x	4I	2S	1B	x	x	x	x	x	x	x
+ARGENTINA COSIMO		5J	5D	D	3J	3J	x	x	x	x	x	x	4J	2J	x	5D	5J	x	4J	x	x	x	5J	5J	3J	x	x	x	x	4J	4J	3J	5J	x	2J	x
+BACCO ALESSANDRA		x	x	x	1D	1D	x	x	x	x	2DN	2DN	1D	1D	x	3D	3D	X	X	3P	3P	x	2DN	2DN	x	x	x	x	x	3D	3D	x	1D	3P	3P	x
+BAJ SARAH		2A	x	1A	x	2P	2N	1P	x	x	x	x	x	x	x	x	x	x	x	1A	1J	x	x	x	x	x	x	x	x	2N	2A	1J	x	2P	1P	x
+BAÙ GIORGIA		2DN	2S	x	1N	x	1D	1V	1V	1D	1N	x	x	x	x	x	x	x	1T	2DN	1N	1D	x	x	2DN	D	1D	1V	x	x	x	x	x	1P	1S	x
+BELLOTTI GABRIELE		4N	D	3P	x	x	x	x	D	D	D	x	4P	5P	x	x	x	x	x	x	4P	3P	4N	x	4P	4P	4N	4N	x	4P	4P	5P	x	x	x	x
+BENFENATI ANDREA		x	x	x	2T	3D	4L	5D	x	x	x	3N	x	5L	x	x	5D	3D	2T	x	5L	3N	2T	5P	4L	3D	3N	1J	x	5L	4L	5D	x	x	x	x
+BIFFI ELENA		x	x	x	1V	1V	1B	1N	x	x	x	x	x	x	x	x	x	x	x	x	x	x	x	x	1V	x	1P	1A	1D	x	x	x	x	x	x	x
+BORZUMATI GIUSEPPE		2L	3I	1B	1B	5L	3L	x	5I	3I	x	x	x	x	x	2I	x	1A	1A	1B	x	x	x	x	2I	2L	5I	5L	x	x	x	x	x	1A	3L	x
+BOTTA RAFFAELLA		5A	5A	x	3A	4A	5S	1S	x	x	x	5S	1S	2S	x	x	x	5S	5S	x	4A	4A	5S	5S	2S	x	x	x	x	x	x	x	x	5A	3A	x
+BOTTON CRISTINA		x	x	2T	2A	1J	2S	x	x	x	x	1S	2S	1T	x	1J	2T	x	x	2J	1V	x	x	x	1A	2A	1T	1S	x	x	x	x	2J	1V	1A	x
+BRUNETTA VIVIANA		x	x	x	x	x	x	x	D	D	D	x	x	x	x	x	x	x	x	x	x	x	x	x	x	x	x	x	x	x	x	x	D	D	x	x
+BUCOLO ROSARIO		x	x	x	x	x	x	x	x	x	x	x	x	x	x	x	x	x	x	x	x	x	x	x	x	x	x	x	x	x	x	x	x	x	x	x
+CALABRESE M.		x	2N	2P	2P	x	x	x	x	x	x	x	3L	3L	x	1A	1A	x	1B	2P	3I	x	x	x	x	x	2N	2N	1A	x	3L	3I	3I	1B	1B	x
+CALIFANO CARMELA		3J	3J	x	x	x	x	x	1T	x	4J	x	x	x	x	1V	D	3J	3J	x	x	4J	x	x	D	x	4J	1T	x	3J	D	D	1V	4J	4J	x
+CANNELLA CHIARA		x	2D	2N	x	x	x	x	1D	1B	x	x	x	x	x	x	x	2D	1N	1P	1A	2P	x	x	x	x	x	x	x	x	x	x	x	x	x	x
+CAPODICI FRANCESCO		1P	x	2D	2S	x	2J	2P	x	x	x	x	2N	1P	1D	x	x	x	1D	1D	2P	2S	x	x	2J	2N	2D	2T	x	x	2N	2P	1P	2T	2D	x
+CAPUTO SERENA		x	4L	5D	3L	1I	1I	x	1I	x	4L	x	x	x	x	X	X	3L	3L	x	x	x	4L	4L	1I	1I	x	5D	x	x	x	3L	5D	x	x	x
+CARPINO GIACOMO		x	x	x	D	3N	5N	5N	x	x	x	D	D	3N	x	x	x	5N	5N	3N	3N	x	x	x	x	3N	D	5N	x	x	x	3N	3N	5N	5N	x
+CASALINO ANGELO		1J	2J	D	x	x	x	x	x	x	x	x	x	x	x	2J	1J	D	x	x	x	x	x	x	x	x	x	x	x	x	x	x	x	x	x	x
+CASIRAGHI ANDREA		3D	3D	x	5D	5D	x	x	x	x	3D	3D	5D	x	x	x	x	1D	x	3D	3D	5D	3D	3D	3D	5D	5D	1D	x	5D	5D	3D	3D	5D	1D	x
+CASTOLDI VALERIA		x	x	x	x	x	x	x	5P	5P	x	1T	x	x	x	5P	5P	1T	x	x	x	x	x	x	x	x	x	x	x	5P	5P	1T	1T	x	x	x
+CATALDO FEDERICA		x	x	x	x	x	x	x	x	x	x	x	x	x	x	2A	2A	x	4A	4A	x	x	x	x	x	x	x	x	x	x	x	x	2A	4A	4A	x
+CAVALIERATOS ANGELA		x	x	x	D	1B	2A	1A	x	1A	x	D	1B	2A	x	x	x	x	D	2A	1B	1A	x	x	x	x	x	x	x	x	x	x	x	x	x	x
+CAVICCHIONI CRISTINA		1S	2L	2I	1T	x	x	x	x	x	x	x	x	x	x	x	x	x	1T	2L	2I	1S	x	x	x	x	x	x	x	1T	2I	x	x	2L	1S	x
+CIMINO SALVATORE		3N	2D	2N	x	x	x	x	1P	1P	2P	x	2D	2D	x	3N	1D	2N	2N	1P	x	x	D	D	2P	2P	x	x	x	x	x	x	x	1D	1D	x
+CIMMINO MARIO		x	x	x	x	2S	1J	2J	2J	2S	2T	x	1T	1S	x	x	x	x	x	2T	1T	1J	1T	2S	x	1S	1J	2J	x	x	x	x	x	1S	2T	x
+CIONCI SIMONA		1B	1B	D	D	D	x	1T	x	x	x	x	x	x	x	1T	1B	1B	x	x	x	x	x	x	x	x	x	x	x	1B	1B	x	x	x	x	x
+CITTERIO MAURIZIO		1L	x	x	x	x	x	x	5L	5L	2L	1L	1L	x	X	5L	2L	1L	1L	x	x	x	2L	2L	x	x	5L	x	5L	x	x	x	x	x	x	x
+COGLIATI LUIGI		x	x	x	3P	4N	4N	x	5N	4N	4N	x	3P	3P	x	3P	3P	4N	4N	D	x	x	3P	3P	x	x	x	x	x	4N	4N	x	5N	x	x	x
+COLOMBO GIULIANA		2S	4N	2J	3N	x	1S	x	1S	2J	2S	2T	x	x	x	2S	2S	2T	x	1S	1S	x	2J	2J	1N	x	x	x	x	x	x	2T	2T	x	x	x
+COLOMBO RUGGERO		5I	5I	1I	1I	x	x	x	x	1I	1I	1I	5I	x	x	x	x	x	x	x	x	x	1I	1I	5I	x	x	x	x	x	x	x	x	x	x	x
+COLZANI BARBARA		5P	2S	3L	4I	2J	x	x	1V	x	5S	2S	x	x	x	4I	5S	5P	x	x	x	x	4I	5P	3L	x	x	x	x	3L	D	x	2S	5S	x	x
+COMI LUCA		x	x	x	x	x	x	x	5D	5D	5D	5D	3D	3D	x	x	x	x	x	5D	5D	3D	x	x	x	x	x	x	x	x	x	x	x	x	x	x
+CONTI DAMIANA		x	x	x	x	x	x	x	x	x	x	5A	5A	3A	x	x	x	3A	3A	x	5A	5A	3A	3A	5A	x	x	x	x	x	x	x	x	x	x	x
+CORTI CHIARA		x	x	4P	4P	3P	3P	5P	4N	4P	5P	5P	5N	5N	x	4N	4N	4P	x	5N	x	x	5N	3N	3N	5P	3P	x	x	x	x	x	x	4N	3N	x
+CORVI LAURA		4L	x	1D	1D	4I	4I	2A	1D	x	1P	x	x	x	x	x	4I	2D	4L	4L	x	2A	x	x	x	1N	2A	1P	1P	2D	2D	1N	1N	x	x	x
+COTRONEO SIMONA		5S	5S	2S	X	x	x	x	3T	3T	X	X	x	x	x	5S	x	3T	1S	2S	x	x	x	3T	x	5S	5S	x	x	1S	X	X	X	x	x	x
+CRESCENTI SALVATORE		x	x	x	x	1T	5L	4N	x	x	3N	x	1J	4J	x	x	x	x	x	3T	1I	5NT	x	x	x	1V	2T	4L	1N	2I	5J	x	4T	2J	3J	x
+CRIPPA ELENA		X	X	x	5J	5J	x	x	X	X	5J	5J	X	X	x	X	X	x	x	x	x	x	X	X	x	x	x	x	x	X	X	x	x	5J	5J	x
+CUCCHIARA ROSALINDA		3I	4L	x	2I	2I	x	X	x	5I	3I	3I	x	x	x	5I	2I	4I	x	x	x	x	3I	4I	1I	1I	x	x	x	5I	5I	4I	4I	2I	x	x
+CURIA CLELIA		x	x	1T	x	2T	1V	5S	x	x	x	x	2T	5S	x	x	x	x	x	1V	2T	1T	x	x	x	1T	1V	5S	x	x	x	x	x	x	x	x
+D'AMICO ROMINA		x	x	x	x	x	x	x	5S	5S	2J	2J	x	x	x	x	x	2J	2J	x	5S	5S	x	x	x	x	x	x	x	2J	2J	5S	5S	x	x	x
+DE BENEDETTI SERGIO		1A	1A	1V	4A	x	x	x	5A	5A	1A	1V	x	x	x	4A	4A	1L	1L	x	x	x	1A	2L	x	5A	x	x	x	4A	1V	1V	x	x	x	x
+DE FABRIS ANNALISA		x	1S	5S	x	3T	x	5T	x	x	x	x	5S	4T	x	x	x	1S	4T	5T	2S	3T	x	x	x	4T	2S	5T	x	x	x	2S	1S	3T	5S	x
+DELLA TORRE ANNA		x	4A	4A	x	5A	5A	x	3A	3A	4A	4A	x	x	x	3A	3A	5A	5A	x	x	x	x	x	x	x	4A	4A	x	x	5A	5A	3A	3A	x	x
+DI DIA VITO		x	x	x	x	2N	2D	2D	x	1B	2A	2A	1A	1A	x	x	2P	2P	1N	x	1A	2P	x	x	x	2D	1B	1B	x	1N	1N	2A	x	2N	2N	x
+DI STASIO MARIA GRAZIA		x	x	x	x	x	x	x	x	x	x	x	x	x	x	x	x	x	x	x	x	x	x	x	x	x	x	x	x	x	x	x	x	x	x	x
+ESPOSITO ERIKA		x	x	5P	5P	3P	3P	x	x	x	5P	5P	3P	3P	x	x	x	x	5P	5P	5P	5P	3P	3P	x	x	x	x	x	x	x	3P	3P	5P	5P	x
+FILIPPA FRANCESCA		x	4A	4A	x	5A	5A	x	3A	3A	4A	4A	x	x	x	3A	3A	5A	5A	x	x	x	x	x	x	x	4A	4A	x	x	5A	5A	3A	3A	x	x
+FIRRINCIELI GIOVANNI		1D	1D	3D	3D	x	1N	x	3D	3D	1D	1D	1N	x	x	1N	1N	x	3D	D	x	x	x	x	x	x	x	3D	1D	1D	1D	x	x	x	x	x
+FRAIESE ALESSIA		4T	1J	1J	x	x	4A	4A	x	x	x	x	4T	4A	x	4T	4T	x	x	x	x	x	1J	1J	4A	x	4T	4T	x	1J	1J	4A	4A	x	x	x
+FRATTA DONATO		x	x	x	x	1S	X	x	x	x	X	x	x	x	x	x	x	x	x	X	x	x	x	X	x	x	x	x	x	x	1S	X	x	x	x	x
+GALBIATI ALESSANDRA		x	x	x	4J	4J	5T	3J	x	x	x	x	5T	5T	x	x	x	4T	3T	4J	5J	5J	x	x	x	3J	3J	x	x	3T	3T	5J	x	4T	4T	x
+GAVAZZI IRIS		x	x	x	x	x	x	x	x	x	4I	4I	2L	1N	x	x	x	x	x	x	x	x	x	x	x	x	1N	4I	x	x	x	2L	2L	x	4I	x
+GHALI SAMIRA		1N	1N	1B	1B	x	x	x	x	x	x	x	x	x	x	1P	1P	1A	1A	x	x	x	1D	1D	x	x	x	x	x	x	x	x	x	x	x	x
+GIARDINA GIUSI		5L	5L	3I	x	3L	x	x	x	x	x	3L	3I	3I	x	x	1I	1I	5L	5L	3L	x	x	x	3I	5L	3L	3L	x	x	x	x	x	1I	3I	x
+GIUNTA CALOGERO		x	x	x	x	x	x	x	x	x	x	x	x	x	x	x	x	4L	4I	1I	1L	x	x	x	x	x	x	x	x	4L	4I	1L	1I	x	x	x
+GRIFÒ VALENTINA		x	x	x	5T	5T	2T	4T	5T	4T	4T	x	3T	x	x	x	x	5T	5T	4T	3T	2T	3T	5T	x	x	x	x	x	4T	x	3T	3T	x	x	x
+IAVARONE LAURA		x	X	X	x	2D	3D	1D	1B	D	x	x	x	x	x	D	D	x	x	1N	1D	1B	x	x	x	x	3D	2D	x	x	x	1D	D	D	1N	x
+IOP ELENA		1T	1T	2J	x	x	x	x	1J	1J	1A	1V	x	x	x	2P	1T	1J	x	3P	x	x	2DN	x	1T	1B	x	2A	x	4A	1P	3L	1J	x	x	x
+LA MATTINA ELENA		X	5NT	5NT	x	x	x	x	X	5NT	x	X	x	x	x	X	X	X	X	X	x	x	X	X	5NT	5NT	x	x	x	X	X	5NT	x	x	x	x
+LA PAGLIA DOMINGO		x	x	x	x	x	5N	5N	3N	3N	5N	5N	5N	5N	x	x	x	5N	5N	3N	3N	x	x	3N	3N	x	x	x	x	x	x	3N	3N	5N	5N	x
+LILLIU DANIELA		4P	1P	x	1N	5N	2P	3P	2P	x	3P	3P	1P	x	x	x	x	x	2P	4N	5N	4P	4P	5N	4N	x	x	x	x	x	x	x	X	1P	4N	x
+LISI ROBERTA		x	x	x	x	x	x	x	x	x	x	5A	5A	x	x	x	x	3A	3A	4A	5A	5A	x	x	x	x	x	x	x	x	x	x	x	4A	4A	x
+LOSURDO ARGENTINA		x	x	x	X	4T	4T	2T	4T	1V	5T	5T	x	x	x	x	x	x	x	1T	4T	1V	5T	2T	X	X	x	x	x	x	x	x	5T	5T	1T	x
+MAGLIOCCO EMANUELE		x	x	x	x	x	x	x	x	x	x	x	x	x	x	x	x	x	x	x	x	x	x	x	x	x	x	x	x	x	x	x	x	x	x	x
+MALACARNE PAOLO		2T	2T	4T	4T	x	3T	3T	x	1T	1T	x	4N	4N	x	x	x	3N	3N	x	2DN	2DN	1N	1N	x	x	x	x	x	5NT	5NT	x	x	x	x	x
+MANERA BENEDETTO		4I	4I	2L	2L	x	x	x	4L	4L	x	2I	2I	x	x	x	3I	3I	x	x	x	x	3L	3L	x	1L	1L	x	x	1I	1I	x	x	5L	5L	x
+MARINI ANDREA		3L	3L	x	3I	3I	x	x	x	x	x	x	x	x	x	3L	3L	x	3I	3I	x	x	x	x	x	x	x	x	x	x	x	x	x	x	x	x
+MARROCCO LUIGI		1V	1V	x	1A	1A	x	x	2DN	2DN	x	x	x	x	x	2DN	2DN	1V	1V	x	x	x	1V	1V	x	1A	1A	x	x	1A	1A	2DN	2DN	x	x	x
+MENGHI RITA		x	x	x	x	x	x	x	x	x	x	x	x	x	x	x	x	x	x	x	x	x	x	x	x	x	x	x	x	x	x	x	x	x	x	x
+MESSANA CRISTINA		3A	2A	2A	x	x	x	x	x	x	x	x	x	x	x	1B	1T	x	x	3A	3A	x	x	x	1B	1B	3A	2A	x	2A	x	1B	1D	x	x	x
+MIRABILE FABRIZIO		x	x	4P	4P	4N	4N	x	x	x	4N	x	4P	x	x	4N	4N	4N	4N	x	x	x	x	x	4P	4P	4N	4N	x	4P	4P	x	x	4P	4P	x
+NASTO MONIA		4A	3A	1N	x	2A	1A	1B	1A	x	5A	1N	x	1B	x	x	x	x	x	5A	2A	3A	4KA	1A	2A	x	x	x	x	5A	4A	3A	1B	1N	x	x
+NUCIFORA CLAUDIO		x	x	x	x	1N	2L	2N	2L	2L	2I	2P	x	2N	x	2L	x	2I	2D	1D	1P	1N	2I	x	1P	x	x	x	x	x	x	x	2I	2D	2P	1D
+OSSO ELVIRA		x	x	x	x	x	x	x	x	x	x	1N	2N	1B	1D	x	x	x	x	x	x	x	x	1A	2A	x	2D	x	x	x	x	2P	1P	x	x	x
+PALLINI SIMONE		x	1L	5I	5L	x	1T	1J	1L	2I	5I	2L	1I	1J	x	1I	1V	x	x	x	x	x	5L	5L	2L	5I	2I	x	x	1V	1T	x	x	x	x	x
+PAPANDREA MARIA CRISTINA		x	x	x	x	x	x	x	x	x	x	x	x	x	x	x	x	x	x	x	x	x	x	x	x	x	x	x	x	x	x	x	x	x	x	x
+PETITO FRANCESCO		x	x	3A	2DN	5P	5D	3D	x	x	x	1A	2A	4P	x	1D	5I	3P	x	3L	2L	x	1L	4A	x	1P	x	x	x	x	x	x	2P	x	5A	x
+PETRELLA GIULIA		x	x	4J	2J	x	3J	X	3J	5J	1J	X	x	x	x	x	x	x	x	5J	4J	3J	x	x	4J	1J	2J	5J	x	x	X	2J	x	1J	x	x
+POMINELLI ANGELA		2I	2I	5L	x	1L	x	x	2I	x	1L	x	x	x	x	3I	5L	5L	2I	2I	x	x	x	x	x	2I	x	3I	x	3I	3I	2I	5L	1L	x	x
+POZZI ACHILLE		x	5P	x	x	1P	x	x	4P	2P	3I	1P	5P	x	x	2P	2I	4I	4P	x	x	x	2P	2P	5P	x	4P	4P	x	1P	1P	x	x	x	x	x
+QUERCIA TERESA		x	x	x	x	x	x	x	x	x	x	x	x	x	x	x	x	x	5I	1L	5T	4T	x	1L	4T	x	5T	5I	x	x	4T	x	1L	5I	5T	x
+REDAELLI ANNA		3T	3T	1S	x	x	x	x	2S	1S	1S	x	x	x	x	3T	3T	2S	2S	x	x	x	2S	1S	1S	3T	x	x	x	2S	2S	1S	x	x	3T	x
+RINALDI DAMIANO		2J	4T	3T	1J	x	x	4J	x	x	1V	4T	x	2T	x	3J	2J	x	x	x	x	x	4J	1T	1J	2T	x	3T	x	x	x	x	3J	1T	1V	x
+RUSSO ENRICA		x	x	4I	5I	x	x	x	4I	4I	5L	5L	x	x	x	x	x	5I	x	x	4L	x	5I	5I	5L	4L	x	x	x	4I	5L	4L	4L	x	x	x
+SANTAMBROGIO ANNA		x	x	x	x	3A	3I	5A	3I	1D	3A	x	4A	5A	x	x	x	4A	1I	2DN	x	x	x	x	x	4A	1I	3A	x	D	x	1I	5A	3I	x	x
+SAVINO SARA		x	x	x	x	x	x	x	2A	2A	x	3A	3A	x	x	x	x	x	x	x	x	x	2A	2A	3A	3A	x	x	x	3A	3A	x	x	2A	2A	x
+SCORTA ANDREA		x	x	x	x	x	3A	3A	4A	4A	1B	1B	x	x	x	x	x	2A	2A	x	x	x	5D	5D	1D	1D	5A	5A	x	x	x	1A	1A	3D	3D	x
+SCUFFI GIUSEPPINA		x	x	x	x	x	x	x	x	x	3L	4L	5L	5I	x	x	x	x	x	x	x	x	x	x	x	x	x	x	x	x	x	5L	3L	4L	5I	x
+SERRADORI SILVIA		5T	5J	x	x	x	x	x	4J	4J	3T	3T	3J	3J	x	5T	5T	5J	5J	5S	x	x	4T	4T	3T	4J	x	3J	x	5S	5S	4T	x	x	x	x
+SFERRAGATTA MARIO		2P	2P	D	x	x	x	x	x	x	x	x	1V	1V	x	1S	1S	D	x	5I	5I	1P	x	X	X	x	x	x	x	D	D	1P	x	2S	2S	x
+SGHERZI FEDERICA		4J	4J	3J	x	x	x	x	x	x	x	4J	5J	5J	x	5J	4J	4J	x	3J	3J	x	3J	3J	x	5J	5J	4J	x	5J	3J	x	x	x	x	x
+SGRÒ VINCENZO		1N	1N	x	1S	x	1P	2S	x	x	x	x	x	x	x	1P	1P	x	x	x	x	x	1D	1D	x	2S	1S	1N	x	x	x	x	x	x	x	x
+SIMONE MICHELE		x	x	x	x	4L	1L	x	3L	3L	D	x	4L	4L	x	1L	1L	2L	x	x	x	x	x	x	1L	3L	2L	x	x	2L	2L	D	x	3L	4L	x
+SIRTORI MADDALENA		x	x	1L	1L	2L	2I	x	x	x	x	x	x	x	x	x	x	x	2L	4I	4I	x	x	2I	x	3I	3I	x	x	x	x	x	x	x	x	x
+SOLANO EMANUELA		x	x	x	x	x	x	x	x	x	x	x	x	x	x	x	1A	x	1B	2P	x	2A	x	X	X	1N	x	2N	1P	x	x	x	x	x	x	x
+TAGLIALATELA IDA		5D	3N	3N	4N	x	x	x	x	x	x	4N	3N	5D	x	x	3N	5D	5D	x	4N	4N	3N	4N	5D	x	x	x	x	x	x	x	4N	3N	5D	x
+TENTORI CLARA		x	4P	5P	5P	x	3N	3N	3N	3N	X	4P	x	x	x	X	X	x	5P	5P	x	x	x	x	X	X	x	x	x	x	x	x	5P	5P	5P	x
+TEOFILO SILVIA		x	x	1P	1P	x	4P	4P	2T	2T	4P	x	x	x	x	2T	x	1P	1P	4P	x	x	1P	1P	2T	x	x	x	x	2T	2T	4P	4P	x	x	x
+TERRANA ANGELA		5N	4N	4N	3N	x	1S	x	1N	1N	2S	2T	x	x	x	5N	5N	1N	x	x	x	x	x	x	1N	4N	x	3N	x	3N	3N	4N	1J	x	x	x
+TODDE CLAUDIO		3D	3D	x	5D	5D	x	x	5D	5D	x	x	x	x	x	x	1D	1D	x	3D	3D	x	3D	3D	3D	5D	5D	x	x	5D	5D	2A	x	x	x	x
+TONIAL MARICA		x	x	4L	4L	5I	5I	x	x	1L	x	5I	4I	4I	x	4L	4L	x	x	x	x	x	1B	1B	4I	4I	4L	x	x	1L	1L	5I	5I	4I	x	x
+VERGA ELENA		x	x	x	5S	5S	5J	5J	x	x	3J	3J	x	x	x	4P	4P	x	1J	1J	2J	2J	x	x	x	x	5P	5P	x	3P	3P	4J	4J	x	x	x
+VIOLA ANGELA		1I	1I	x	x	x	x	x	x	x	x	x	x	x	x	x	x	x	x	x	x	x	x	x	x	x	x	x	x	x	x	x	x	x	x	x
+ZAPPA ALESSANDRO		x	x	x	5N	4P	5P	x	x	x	5N	5N	D	x	x	x	x	x	3P	x	5P	5P	5P	4P	D	x	5N	3P	x	x	x	3P	3P	4P	4P	x
+ZINGALES SALVATORE		x	x	x	x	x	x	x	x	x	x	x	x	x	x	x	x	x	x	x	x	x	x	x	x	x	x	x	x	x	x	x	x	x	x	x
+ZUCCARO ADRIANO		3P	3P	5A	5A	x	x	x	3P	3P	x	x	2P	2P	x	5A	5A	x	x	x	x	x	5A	5A	3P	3P	2P	2P	x	2P	2P	x	x	x	x	x
+ZUCCONELLI MARISA		x	UT	UT	UT	UT	x	x	x	UT	UT	UT	x	x	x	x	UT	UT	UT	UT	x	x	x	UT	UT	UT	x	x	x	x	UT	UT	UT	UT	x	x
+        `;
+        // --- FINE DATI ORARIO ---
+
+        // Variabili globali
+        let db;
+        let auth;
+        let userId;
+        let appId;
+        let orarioDocenti = []; // Struttura: [{ docente: "Nome", schedule: ["", "5J", ...] }] (35 elementi)
+        let classi = []; // Struttura: [{ id: "3A", tipo: "DADA", locations: { lun_int1: { piano: "1", ... }, ... } }]
+        let assignments = {}; // Risultati dell'algoritmo
+        
+        const giorni = ['lun', 'mar', 'mer', 'gio', 'ven'];
+        const ore = ['h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'h7'];
+        const oreNomi = ['8:00-8:50', '8:50-9:45', '9:55-10:50', '10:50-11:50', '11:50-12:45', '13:00-13:50', '13:50-14:40'];
+        const intervalli = ['int1', 'int2'];
+        const piani = ['T', '1', '2'];
+        const corridoi = ['Atrio', 'A', 'B', 'C', 'D', 'E'];
+
+        // Mappa per la logica dell'algoritmo
+        const giornoMap = { lun: 0, mar: 7, mer: 14, gio: 21, ven: 28 };
+
+        // --- INIZIALIZZAZIONE FIREBASE ---
+        // Configurazione Firebase fornita dall'utente
+        const firebaseConfig = {
+          apiKey: "AIzaSyCgVfSzyZi1jIOXvGqe17bsuaVbBr9bW8A",
+          authDomain: "oresorveglianza.firebaseapp.com",
+          projectId: "oresorveglianza",
+          storageBucket: "oresorveglianza.firebasestorage.app",
+          messagingSenderId: "55401666581",
+          appId: "1:55401666581:web:c1f303fc1607241df4561c",
+          measurementId: "G-GV2ERZ13NG"
+        };
+        
+        // Inizializza Firebase
+        const app = initializeApp(firebaseConfig);
+        const analytics = getAnalytics(app); // Aggiunto come richiesto
+        
+        // Usa l'appId dalla configurazione
+        appId = firebaseConfig.appId; 
+
+        try {
+            // Le variabili __firebase_config e __app_id non vengono più usate.
+            
+            db = getFirestore(app);
+            auth = getAuth(app);
+            setLogLevel('debug'); // Abilita log per debug
+
+            // Imposta la persistenza in memoria per evitare problemi in iframe
+            await setPersistence(auth, inMemoryPersistence);
+
+            console.log("Firebase Inizializzato. In attesa di autenticazione...");
+
+            // Gestione autenticazione
+            onAuthStateChanged(auth, async (user) => {
+                if (user) {
+                    console.log("Utente autenticato:", user.uid);
+                    userId = user.uid;
+                    // Nascondi il loading e mostra la dashboard
+                    document.getElementById('loading-spinner').classList.add('hidden');
+                    document.getElementById('main-content').classList.remove('hidden');
+                    showPage('page-dashboard');
+                    
+                    // Carica i dati dopo l'autenticazione
+                    await loadOrario();
+                    await loadClassi();
+                } else {
+                    console.log("Nessun utente. Tentativo di login anonimo.");
+                    try {
+                        // Dato che usiamo una configurazione Firebase personalizzata,
+                        // non possiamo usare __initial_auth_token (che appartiene all'ambiente Canvas).
+                        // Eseguiamo sempre l'accesso anonimo.
+                        console.log("Tentativo con Login Anonimo...");
+                        await signInAnonymously(auth);
+
+                    } catch (error) {
+                        console.error("Errore durante l'autenticazione:", error);
+                        document.getElementById('loading-message').textContent = `Errore di autenticazione: ${error.message}. Impossibile caricare i dati.`;
+                    }
+                }
+            });
+
+        } catch (error) {
+            console.error("Errore critico inizializzazione Firebase:", error);
+            document.getElementById('loading-message').textContent = `Errore critico: ${error.message}. L'app non può funzionare.`;
+        }
+        
+        // --- LOGICA DI PARSING ORARIO ---
+        function parseOrarioData(dataString) {
+            const lines = dataString.trim().split('\n');
+            const parsedData = [];
+            // Salta le prime 2 righe di intestazione
+            for (let i = 2; i < lines.length; i++) {
+                const columns = lines[i].split('\t');
+                const docente = columns[0].trim();
+                if (!docente) continue; // Salta righe vuote
+
+                // Prende le 35 colonne orario (7 ore * 5 giorni)
+                // Inizia da columns[2] perché c'è un doppio tab '\t\t' dopo il nome
+                const scheduleRaw = columns.slice(2); 
+                
+                // Normalizza i dati: 'x', 'X', 'D', 'UT' diventano stringa vuota
+                const schedule = scheduleRaw.map(s => {
+                    const val = s.trim().toUpperCase();
+                    if (val === 'X' || val === 'D' || val === 'UT' || val === '') {
+                        return '';
+                    }
+                    return s.trim(); // Mantieni il nome della classe
+                }).slice(0, 35); // Assicura che ci siano solo 35 elementi
+
+                // Assicura che l'array schedule abbia sempre 35 elementi
+                while (schedule.length < 35) {
+                    schedule.push('');
+                }
+
+                parsedData.push({ docente, schedule });
+            }
+            console.log(`Orario parsato per ${parsedData.length} docenti.`);
+            return parsedData;
+        }
+
+        // --- Funzione per generare i dati di default delle classi
+        function getInitialClassiData() {
+            const dadaClasses = ['3A', '4A', '5A', '3D', '5D', '1I', '2I', '3I', '4I', '5I', '1L', '2L', '3L', '4L', '5L', '3N', '4N', '5N', '3P', '4P', '5P'];
+            // const fisseClasses = ['1P', '1V', '1A', '1B', '1T', '2T', '2J', '1J', '5S', '2S', '1S', '1D', '2DN', '1N', '2A', '2P', '4J', '3J', '3T', '4T', '5NT', '5J'];
+            
+            let initialClassi = [];
+
+            dadaClasses.forEach(nome => {
+                let newClass = { id: nome, tipo: 'DADA', locations: {} };
+                giorni.forEach(giorno => {
+                    intervalli.forEach(int => {
+                        newClass.locations[`${giorno}_${int}`] = { piano: 'T', corridoio: 'Atrio', aula: '' };
+                    });
+                });
+                initialClassi.push(newClass);
+            });
+
+            /*
+            fisseClasses.forEach(nome => {
+                initialClassi.push({
+                    id: nome,
+                    tipo: 'FISSA',
+                    locations: { all: { piano: 'T', corridoio: 'Atrio', aula: '' } }
+                });
+            });
+            */
+            
+            console.log(`Creati ${initialClassi.length} classi di default (solo DADA).`);
+            return initialClassi;
+        }
+
+        // --- LOGICA DI NAVIGAZIONE ---
+        function showPage(pageId) {
+            document.querySelectorAll('.page-content').forEach(page => {
+                page.classList.add('hidden');
+            });
+            const activePage = document.getElementById(pageId);
+            if (activePage) {
+                activePage.classList.remove('hidden');
+            }
+            // Aggiorna stato attivo navigazione
+            document.querySelectorAll('nav button').forEach(btn => {
+                btn.classList.remove('bg-indigo-700', 'text-white');
+                btn.classList.add('text-indigo-100', 'hover:bg-indigo-500');
+            });
+            const activeBtn = document.querySelector(`nav button[onclick="showPage('${pageId}')"]`);
+            if (activeBtn) {
+                activeBtn.classList.add('bg-indigo-700', 'text-white');
+                activeBtn.classList.remove('text-indigo-100', 'hover:bg-indigo-500');
+            }
+        }
+        // Rendi showPage globale per i bottoni nell'HTML
+        window.showPage = showPage;
+
+        
+        // --- LOGICA DATABASE (FIRESTORE) ---
+
+        // ORARIO
+        async function loadOrario() {
+            if (!userId) return;
+            const orarioRef = doc(db, `artifacts/${appId}/users/${userId}/orario`, "main");
+            
+            // Ascolta le modifiche in tempo reale
+            onSnapshot(orarioRef, (docSnap) => {
+                if (docSnap.exists()) {
+                    console.log("Caricato orario da Firestore.");
+                    orarioDocenti = docSnap.data().orario;
+                } else {
+                    console.log("Nessun orario in Firestore. Uso i dati grezzi.");
+                    orarioDocenti = parseOrarioData(rawOrarioData);
+                    // Prova a salvarlo per la prima volta
+                    saveOrario(); 
+                }
+                // (Ri)disegna la tabella ogni volta che i dati cambiano
+                renderOrarioTable();
+            }, (error) => {
+                console.error("Errore caricamento orario: ", error);
+            });
+        }
+
+        async function saveOrario() {
+            if (!userId || !orarioDocenti || orarioDocenti.length === 0) return;
+            console.log("Salvataggio orario in corso...");
+            const orarioRef = doc(db, `artifacts/${appId}/users/${userId}/orario`, "main");
+            try {
+                await setDoc(orarioRef, { orario: orarioDocenti });
+                console.log("Orario salvato con successo.");
+                showToast("Orario salvato con successo!");
+            } catch (error) {
+                console.error("Errore durante il salvataggio dell'orario: ", error);
+                showToast("Errore nel salvataggio.", "error");
+            }
+        }
+        window.saveOrario = saveOrario; // Rendi globale per il bottone
+
+        // CLASSI
+        async function loadClassi() {
+            if (!userId) return;
+            const classiRef = doc(db, `artifacts/${appId}/users/${userId}/classi`, "main");
+
+            onSnapshot(classiRef, (docSnap) => {
+                if (docSnap.exists() && docSnap.data().classi && docSnap.data().classi.length > 0) {
+                    console.log("Caricate classi da Firestore.");
+                    classi = docSnap.data().classi;
+                } else {
+                    console.log("Nessuna configurazione classi trovata. Creo e salvo la configurazione di default.");
+                    classi = getInitialClassiData(); // Carica i dati di default
+                    saveClassi(); // Salva i dati di default su Firestore
+                }
+                // (Ri)disegna i form delle classi
+                renderClassiForms();
+            }, (error) => {
+                console.error("Errore caricamento classi: ", error);
+            });
+        }
+
+        // Funzione chiamata dal bottone "Salva Configurazione Classi"
+        async function saveClassiFromButton() {
+            if (!userId) return;
+            console.log("Salvataggio classi (da bottone) in corso...");
+            
+            // Leggi i dati attuali dai form prima di salvare
+            updateClassiStateFromForms(); 
+            
+            await saveClassi(); // Chiama la funzione di salvataggio principale
+        }
+        window.saveClassiFromButton = saveClassiFromButton;
+
+        // Funzione principale di salvataggio (usata internamente e dal bottone)
+        async function saveClassi() {
+            if (!userId) return;
+            console.log("Salvataggio stato 'classi' in DB...");
+            
+            const classiRef = doc(db, `artifacts/${appId}/users/${userId}/classi`, "main");
+            try {
+                await setDoc(classiRef, { classi: classi }); // Salva l'oggetto 'classi' corrente
+                console.log("Classi salvate con successo.");
+                showToast("Configurazione classi salvata!");
+            } catch (error) {
+                console.error("Errore durante il salvataggio delle classi: ", error);
+                showToast("Errore nel salvataggio classi.", "error");
+            }
+        }
+        // NOTA: window.saveClassi non è più esposto, si usa saveClassiFromButton
+
+        // --- PAGINA ORARIO DOCENTI ---
+        
+        function renderOrarioTable() {
+            const container = document.getElementById('orario-table-container');
+            if (!container) return;
+            
+            // Intestazione giorni
+            let headHtml = `
+                <thead class="bg-gray-100 sticky top-0 z-10">
+                    <tr>
+                        <th class="sticky left-0 bg-gray-100 px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border border-gray-300">Docente</th>
+            `;
+            giorni.forEach(giorno => {
+                headHtml += `<th colspan="7" class="px-3 py-2 text-center text-xs font-medium text-gray-500 uppercase tracking-wider border border-gray-300">${giorno}</th>`;
+            });
+            headHtml += `</tr><tr><th class="sticky left-0 bg-gray-100 px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border border-gray-300"></th>`;
+            
+            // Intestazione ore
+            giorni.forEach(() => {
+                oreNomi.forEach(ora => {
+                    headHtml += `<th class="px-2 py-2 text-center text-xs font-medium text-gray-500 uppercase tracking-wider border border-gray-300 min-w-[6rem]">${ora}</th>`;
+                });
+            });
+            headHtml += `</tr></thead>`;
+
+            // Corpo tabella
+            let bodyHtml = `<tbody class="bg-white divide-y divide-gray-200">`;
+            orarioDocenti.forEach((doc, docIndex) => {
+                bodyHtml += `<tr>`;
+                bodyHtml += `<td class="sticky left-0 bg-white px-3 py-2 whitespace-nowrap text-sm font-medium text-gray-900 border border-gray-300">${doc.docente}</td>`;
+                
+                doc.schedule.forEach((classe, scheduleIndex) => {
+                    const giornoIndex = Math.floor(scheduleIndex / 7);
+                    const oraIndex = scheduleIndex % 7;
+                    
+                    // Colora le ore degli intervalli
+                    let bgColor = 'bg-white';
+                    if (oraIndex === 1 || oraIndex === 2) bgColor = 'bg-blue-50'; // Ore Int 1
+                    if (oraIndex === 4 || oraIndex === 5) bgColor = 'bg-green-50'; // Ore Int 2
+                    if (classe) bgColor = 'bg-yellow-100'; // Ora occupata
+
+                    bodyHtml += `
+                        <td class="px-2 py-2 whitespace-nowrap text-sm text-gray-700 text-center border border-gray-300 ${bgColor} hover:bg-indigo-100 focus:outline-indigo-500"
+                            contenteditable="true"
+                            data-doc-index="${docIndex}"
+                            data-schedule-index="${scheduleIndex}"
+                            onblur="updateOrarioState(this)">
+                            ${classe}
+                        </td>
+                    `;
+                });
+                bodyHtml += `</tr>`;
+            });
+            bodyHtml += `</tbody>`;
+            
+            container.innerHTML = `<table class="min-w-full border-collapse border border-gray-300">${headHtml}${bodyHtml}</table>`;
+        }
+        
+        // Funzione per aggiornare lo stato dall'evento onblur
+        function updateOrarioState(cell) {
+            const docIndex = cell.dataset.docIndex;
+            const scheduleIndex = cell.dataset.scheduleIndex;
+            const newValue = cell.textContent.trim();
+            
+            if (orarioDocenti[docIndex] && orarioDocenti[docIndex].schedule[scheduleIndex] !== undefined) {
+                orarioDocenti[docIndex].schedule[scheduleIndex] = newValue;
+                // Non salvare ad ogni cella, è troppo. L'utente userà il bottone "Salva Orario".
+                // Però, per sicurezza, potremmo salvare
+                // saveOrario(); // Decidiamo di NO, troppo pesante. L'utente clicca Salva.
+                
+                // Aggiorna solo il colore di sfondo
+                cell.classList.remove('bg-white', 'bg-blue-50', 'bg-green-50', 'bg-yellow-100');
+                const oraIndex = scheduleIndex % 7;
+                let bgColor = 'bg-white';
+                if (oraIndex === 1 || oraIndex === 2) bgColor = 'bg-blue-50';
+                if (oraIndex === 4 || oraIndex === 5) bgColor = 'bg-green-50';
+                if (newValue) bgColor = 'bg-yellow-100';
+                cell.classList.add(bgColor);
+            }
+        }
+        window.updateOrarioState = updateOrarioState;
+
+        
+        // --- PAGINA GESTIONE CLASSI ---
+        
+        // Aggiunge una nuova classe alla UI (non ancora salvata)
+        function addNewClass() {
+            const nomeInput = document.getElementById('new-class-name');
+            const tipoInput = document.getElementById('new-class-tipo');
+            const nomeClasse = nomeInput.value.trim().toUpperCase();
+            const tipoClasse = tipoInput.value;
+
+            if (!nomeClasse) {
+                showToast("Inserire un nome per la classe.", "error");
+                return;
+            }
+            if (classi.find(c => c.id === nomeClasse)) {
+                showToast("Questa classe esiste già.", "error");
+                return;
+            }
+            
+            // Crea l'oggetto base
+            const newClass = {
+                id: nomeClasse,
+                tipo: tipoClasse,
+                locations: {}
+            };
+            
+            if (tipoClasse === 'FISSA') {
+                newClass.locations.all = { piano: 'T', corridoio: 'Atrio', aula: '' };
+            } else { // DADA
+                giorni.forEach(giorno => {
+                    intervalli.forEach(int => {
+                        newClass.locations[`${giorno}_${int}`] = { piano: 'T', corridoio: 'Atrio', aula: '' };
+                    });
+                });
+            }
+            
+            classi.push(newClass);
+            renderClassiForms(); // Ridisegna tutto
+            nomeInput.value = ''; // Resetta input
+            saveClassi(); // Salva automaticamente dopo l'aggiunta
+        }
+        window.addNewClass = addNewClass;
+        
+        // Ridisegna tutti i form delle classi
+        function renderClassiForms() {
+            const container = document.getElementById('class-config-container');
+            container.innerHTML = ''; // Pulisci
+            
+            classi.sort((a, b) => a.id.localeCompare(b.id)); // Ordina
+            
+            classi.forEach(classe => {
+                const card = document.createElement('div');
+                card.className = "bg-white p-4 rounded-lg shadow-md mb-4";
+                card.dataset.classId = classe.id;
+                
+                let innerHtml = `
+                    <div class="flex justify-between items-center mb-4">
+                        <h3 class="text-xl font-bold text-indigo-700">${classe.id}</h3>
+                        <div>
+                            <span class="text-sm font-medium ${classe.tipo === 'DADA' ? 'text-blue-600' : 'text-green-600'}">
+                                ${classe.tipo}
+                            </span>
+                            <button onclick="removeClass('${classe.id}')" class="ml-4 text-red-500 hover:text-red-700 text-sm font-medium">Rimuovi</button>
+                        </div>
+                    </div>
+                `;
+                
+                if (classe.tipo === 'FISSA') {
+                    const loc = classe.locations.all || { piano: 'T', corridoio: 'Atrio', aula: '' };
+                    innerHtml += createLocationInputs(classe.id, 'all', loc.piano, loc.corridoio, loc.aula, "Posizione Fissa");
+                } else { // DADA
+                    innerHtml += '<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">';
+                    giorni.forEach(giorno => {
+                        innerHtml += `<div class="border border-gray-200 p-3 rounded-md">`;
+                        innerHtml += `<h4 class="text-md font-semibold mb-2 capitalize">${giorno}</h4>`;
+                        intervalli.forEach((int, index) => {
+                            const key = `${giorno}_${int}`;
+                            const loc = classe.locations[key] || { piano: 'T', corridoio: 'Atrio', aula: '' };
+                            const label = `Intervallo ${index + 1} (${int === 'int1' ? '9:45' : '12:45'})`;
+                            innerHtml += createLocationInputs(classe.id, key, loc.piano, loc.corridoio, loc.aula, label);
+                        });
+                        innerHtml += `</div>`;
+                    });
+                    innerHtml += '</div>';
+                }
+                
+                card.innerHTML = innerHtml;
+                container.appendChild(card);
+            });
+        }
+        
+        // Helper per creare i select
+        function createLocationInputs(classId, key, piano, corridoio, aula, label) {
+            const pKey = `${classId}-${key}-piano`;
+            const cKey = `${classId}-${key}-corridoio`;
+            const aKey = `${classId}-${key}-aula`;
+            
+            let pianoOptions = piani.map(p => `<option value="${p}" ${p === piano ? 'selected' : ''}>Piano ${p}</option>`).join('');
+            let corridoioOptions = corridoi.map(c => `<option value="${c}" ${c === corridoio ? 'selected' : ''}>${c}</option>`).join('');
+            
+            return `
+                <div class="mb-3 p-2 bg-gray-50 rounded-lg">
+                    <label class="block text-sm font-medium text-gray-700">${label}</label>
+                    <div class="mt-1 grid grid-cols-3 gap-2">
+                        <select id="${pKey}" class="class-input mt-1 block w-full py-2 px-3 border border-gray-300 bg-white rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
+                            ${pianoOptions}
+                        </select>
+                        <select id="${cKey}" class="class-input mt-1 block w-full py-2 px-3 border border-gray-300 bg-white rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
+                            ${corridoioOptions}
+                        </select>
+                        <input type="text" id="${aKey}" value="${aula}" placeholder="Aula (es. 101)" class="class-input mt-1 block w-full py-2 px-3 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
+                    </div>
+                </div>
+            `;
+        }
+        
+        // Rimuove una classe
+        function removeClass(classId) {
+            classi = classi.filter(c => c.id !== classId);
+            renderClassiForms();
+            // Salva automaticamente la rimozione
+            saveClassi();
+        }
+        window.removeClass = removeClass;
+
+        // Legge tutti i valori dai form e aggiorna lo stato 'classi'
+        function updateClassiStateFromForms() {
+            const inputs = document.querySelectorAll('.class-input');
+            const updatedClassi = {};
+
+            // Inizializza gli oggetti
+            classi.forEach(c => {
+                updatedClassi[c.id] = { ...c, locations: {} };
+            });
+
+            inputs.forEach(input => {
+                const [classId, key, type] = input.id.split('-');
+                if (!updatedClassi[classId]) return;
+
+                if (key === 'all') {
+                    if (!updatedClassi[classId].locations.all) updatedClassi[classId].locations.all = {};
+                    updatedClassi[classId].locations.all[type] = input.value;
+                } else {
+                    const locKey = `${key.split('_')[0]}_${key.split('_')[1]}`; // es. lun_int1
+                    if (!updatedClassi[classId].locations[locKey]) updatedClassi[classId].locations[locKey] = {};
+                    updatedClassi[classId].locations[locKey][type] = input.value;
+                }
+            });
+            
+            // Converte l'oggetto mappa in array
+            classi = Object.values(updatedClassi);
+        }
+
+        // --- LOGICA ALGORITMO DI ASSEGNAZIONE ---
+        
+        function runAlgorithm() {
+            console.log("Avvio algoritmo di assegnazione...");
+            showToast("Elaborazione in corso...", "info");
+            
+            let totalAssignments = 0;
+            let docentiCoinvolti = new Set();
+            
+            // Reset
+            assignments = {};
+            let docenteUsage = {}; // Traccia l'uso: { "Nome Docente": { lun: 0, mar: 0, ... } }
+            orarioDocenti.forEach(doc => {
+                docenteUsage[doc.docente] = { lun: 0, mar: 0, mer: 0, gio: 0, ven: 0 };
+            });
+
+            giorni.forEach(giorno => {
+                assignments[giorno] = { int1: {}, int2: {} };
+                
+                // --- Intervallo 1 (9:45 - 9:55) ---
+                let availableTeachers_int1 = findAvailableTeachers(giorno, 'int1', docenteUsage);
+                let hotspots_int1 = findHotspots(giorno, 'int1');
+                
+                console.log(`[${giorno} int1] Hotspots: ${hotspots_int1.length}, Docenti disponibili: ${availableTeachers_int1.length}`);
+                
+                // Assegna docenti agli hotspot
+                hotspots_int1.forEach(hotspot => {
+                    const assigned = assignTeachersToHotspot(hotspot, availableTeachers_int1, docenteUsage, giorno, 2);
+                    assignments[giorno].int1[hotspot] = assigned;
+                    assigned.forEach(doc => docentiCoinvolti.add(doc));
+                    totalAssignments += assigned.length;
+                });
+                
+                // --- Intervallo 2 (12:45 - 13:00) ---
+                // Importante: i docenti usati in int1 non possono essere usati in int2
+                let availableTeachers_int2 = findAvailableTeachers(giorno, 'int2', docenteUsage);
+                let hotspots_int2 = findHotspots(giorno, 'int2');
+                
+                console.log(`[${giorno} int2] Hotspots: ${hotspots_int2.length}, Docenti disponibili: ${availableTeachers_int2.length}`);
+                
+                hotspots_int2.forEach(hotspot => {
+                    const assigned = assignTeachersToHotspot(hotspot, availableTeachers_int2, docenteUsage, giorno, 2);
+                    assignments[giorno].int2[hotspot] = assigned;
+                    assigned.forEach(doc => docentiCoinvolti.add(doc));
+                    totalAssignments += assigned.length;
+                });
+            });
+            
+            console.log("Algoritmo completato.", assignments);
+            
+            // Aggiorna la UI
+            renderAssignments();
+            updateDashboardStats(totalAssignments, docentiCoinvolti.size);
+            showPage('page-assegnazione');
+            showToast("Assegnazione completata!", "success");
+        }
+        window.runAlgorithm = runAlgorithm;
+        
+        // Trova docenti disponibili per un dato giorno e intervallo
+        function findAvailableTeachers(giorno, intervallo, docenteUsage) {
+            const offset = giornoMap[giorno]; // 0 per lun, 7 per mar, ...
+            
+            // Filtra i docenti
+            const available = orarioDocenti.filter(doc => {
+                // Controlla se il docente è già stato usato OGGI
+                if (docenteUsage[doc.docente][giorno] > 0) {
+                    return false;
+                }
+                
+                const schedule = doc.schedule;
+                
+                if (intervallo === 'int1') {
+                    // Libero in H2 (idx 1) O H3 (idx 2)
+                    const h2_free = schedule[offset + 1] === '';
+                    const h3_free = schedule[offset + 2] === '';
+                    return h2_free || h3_free;
+                } else { // int2
+                    // Libero in H5 (idx 4) O H6 (idx 5)
+                    const h5_free = schedule[offset + 4] === '';
+                    const h6_free = schedule[offset + 5] === '';
+                    return h5_free || h6_free;
+                }
+            });
+            
+            // Shuffle per equità
+            return shuffleArray(available.map(doc => doc.docente));
+        }
+        
+        // Trova i luoghi (Piano-Corridoio) che necessitano sorveglianza
+        function findHotspots(giorno, intervallo) {
+            const hotspots = new Set();
+            const key = `${giorno}_${intervallo}`;
+            
+            classi.forEach(classe => {
+                let loc;
+                if (classe.tipo === 'FISSA') {
+                    loc = classe.locations.all;
+                } else { // DADA
+                    loc = classe.locations[key];
+                }
+                
+                if (loc && loc.piano && loc.corridoio) {
+                    hotspots.add(`${loc.piano}-${loc.corridoio}`);
+                }
+            });
+            
+            return Array.from(hotspots);
+        }
+        
+        // Assegna docenti (pop da array) e aggiorna usage
+        function assignTeachersToHotspot(hotspot, availableTeachers, docenteUsage, giorno, numToAssign) {
+            const assigned = [];
+            for (let i = 0; i < numToAssign; i++) {
+                if (availableTeachers.length === 0) break; // Finiti i docenti
+                
+                const docente = availableTeachers.pop(); // Prendi l'ultimo
+                assigned.push(docente);
+                docenteUsage[docente][giorno]++; // Incrementa l'uso per OGGI
+            }
+            return assigned;
+        }
+
+        // --- PAGINA ASSEGNAZIONE E DASHBOARD ---
+        
+        function renderAssignments() {
+            const container = document.getElementById('results-container');
+            container.innerHTML = ''; // Pulisci
+            
+            // Crea tab
+            let tabsHtml = '<div class="flex border-b border-gray-300 mb-4">';
+            giorni.forEach((giorno, index) => {
+                tabsHtml += `
+                    <button id="tab-${giorno}" 
+                            onclick="showDayTab('${giorno}')" 
+                            class="tab-button capitalize py-2 px-4 font-medium text-sm ${index === 0 ? 'border-b-2 border-indigo-600 text-indigo-600' : 'text-gray-500 hover:text-gray-700'}">
+                        ${giorno}
+                    </button>
+                `;
+            });
+            tabsHtml += '</div>';
+            container.innerHTML = tabsHtml;
+
+            // Crea contenuti tabelle
+            giorni.forEach((giorno, index) => {
+                const dayContent = document.createElement('div');
+                dayContent.id = `tab-content-${giorno}`;
+                dayContent.className = `day-tab-content ${index !== 0 ? 'hidden' : ''}`;
+                
+                const allHotspots = new Set([
+                    ...Object.keys(assignments[giorno].int1),
+                    ...Object.keys(assignments[giorno].int2)
+                ]);
+                
+                // Ordina hotspot: T-Atrio, T-A, ..., 1-Atrio, 1-A, ...
+                const sortedHotspots = Array.from(allHotspots).sort((a, b) => {
+                    const [pa, ca] = a.split('-');
+                    const [pb, cb] = b.split('-');
+                    if (pa !== pb) return pa.localeCompare(pb);
+                    return ca.localeCompare(cb);
+                });
+                
+                if (sortedHotspots.length === 0) {
+                    dayContent.innerHTML = `<p class="text-gray-600">Nessuna sorveglianza necessaria per ${giorno}.</p>`;
+                    container.appendChild(dayContent);
+                    return;
+                }
+                
+                let tableHtml = `
+                    <h3 class="text-xl font-semibold text-indigo-800 mb-3 capitalize">${giorno}</h3>
+                    <table class="min-w-full bg-white shadow rounded-lg overflow-hidden">
+                        <thead class="bg-gray-100">
+                            <tr>
+                                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Piano</th>
+                                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Corridoio</th>
+                                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase bg-blue-50">Intervallo 1 (9:45)</th>
+                                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase bg-green-50">Intervallo 2 (12:45)</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-gray-200">
+                `;
+                
+                sortedHotspots.forEach(hotspot => {
+                    const [piano, corridoio] = hotspot.split('-');
+                    const docenti1 = (assignments[giorno].int1[hotspot] || []).join(', ') || '<i class="text-gray-400">Nessuno</i>';
+                    const docenti2 = (assignments[giorno].int2[hotspot] || []).join(', ') || '<i class="text-gray-400">Nessuno</i>';
+                    
+                    tableHtml += `
+                        <tr>
+                            <td class="px-4 py-3 whitespace-nowrap text-sm font-medium text-gray-900">Piano ${piano}</td>
+                            <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-800">${corridoio}</td>
+                            <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-700 bg-blue-50">${docenti1}</td>
+                            <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-700 bg-green-50">${docenti2}</td>
+                        </tr>
+                    `;
+                });
+                
+                tableHtml += `</tbody></table>`;
+                dayContent.innerHTML = tableHtml;
+                container.appendChild(dayContent);
+            });
+        }
+        
+        // Mostra il tab del giorno
+        function showDayTab(giorno) {
+            document.querySelectorAll('.day-tab-content').forEach(el => el.classList.add('hidden'));
+            document.getElementById(`tab-content-${giorno}`).classList.remove('hidden');
+            
+            document.querySelectorAll('.tab-button').forEach(btn => {
+                btn.classList.remove('border-b-2', 'border-indigo-600', 'text-indigo-600');
+                btn.classList.add('text-gray-500', 'hover:text-gray-700');
+            });
+            document.getElementById(`tab-${giorno}`).classList.add('border-b-2', 'border-indigo-600', 'text-indigo-600');
+            document.getElementById(`tab-${giorno}`).classList.remove('text-gray-500', 'hover:text-gray-700');
+        }
+        window.showDayTab = showDayTab;
+
+        // Aggiorna le statistiche sulla Dashboard
+        function updateDashboardStats(total, docenti) {
+            document.getElementById('stat-total-sorveglianze').textContent = total;
+            document.getElementById('stat-total-docenti').textContent = docenti;
+        }
+
+        // --- LOGICA DI ESPORTAZIONE ---
+        
+        function exportPDF() {
+            const { jsPDF } = window.jspdf;
+            if (!assignments || Object.keys(assignments).length === 0) {
+                showToast("Nessun dato da esportare. Avvia prima l'algoritmo.", "error");
+                return;
+            }
+
+            const doc = new jsPDF();
+            const today = new Date().toLocaleDateString('it-IT');
+            
+            doc.setFontSize(18);
+            doc.text("Assegnazione Sorveglianze Intervalli", 105, 15, { align: 'center' });
+            doc.setFontSize(12);
+            doc.text(`ISTCG Primo Levi - Seregno - Referente: Prof. Zucconelli Marisa`, 105, 22, { align: 'center' });
+            doc.setFontSize(10);
+            doc.text(`Documento generato il: ${today}`, 105, 28, { align: 'center' });
+
+            let firstPage = true;
+
+            giorni.forEach(giorno => {
+                if (!firstPage) {
+                    doc.addPage();
+                }
+                
+                doc.setFontSize(16);
+                doc.text(`Assegnazioni per: ${giorno.toUpperCase()}`, 14, 40);
+                
+                const tableData = [];
+                const allHotspots = new Set([
+                    ...Object.keys(assignments[giorno].int1),
+                    ...Object.keys(assignments[giorno].int2)
+                ]);
+                const sortedHotspots = Array.from(allHotspots).sort((a, b) => {
+                    const [pa, ca] = a.split('-');
+                    const [pb, cb] = b.split('-');
+                    if (pa !== pb) return pa.localeCompare(pb);
+                    return ca.localeCompare(cb);
+                });
+
+                if (sortedHotspots.length === 0) {
+                    doc.setFontSize(12);
+                    doc.text("Nessuna sorveglianza necessaria.", 14, 50);
+                    firstPage = false;
+                    return;
+                }
+                
+                sortedHotspots.forEach(hotspot => {
+                    const [piano, corridoio] = hotspot.split('-');
+                    const docenti1 = (assignments[giorno].int1[hotspot] || []).join(', ') || '-';
+                    const docenti2 = (assignments[giorno].int2[hotspot] || []).join(', ') || '-';
+                    tableData.push([`Piano ${piano}`, corridoio, docenti1, docenti2]);
+                });
+
+                doc.autoTable({
+                    startY: 45,
+                    head: [['Piano', 'Corridoio', 'Intervallo 1 (9:45)', 'Intervallo 2 (12:45)']],
+                    body: tableData,
+                    theme: 'grid',
+                    headStyles: { fillColor: [79, 70, 229] }, // Indigo
+                    didDrawPage: (data) => {
+                        // Footer
+                        doc.setFontSize(8);
+                        doc.text('Pagina ' + doc.internal.getNumberOfPages(), data.settings.margin.left, doc.internal.pageSize.height - 10);
+                    }
+                });
+                
+                firstPage = false;
+            });
+
+            doc.save(`Assegnazione_Sorveglianze_${today}.pdf`);
+        }
+        window.exportPDF = exportPDF;
+        
+        function exportExcel() {
+            if (!assignments || Object.keys(assignments).length === 0) {
+                showToast("Nessun dato da esportare. Avvia prima l'algoritmo.", "error");
+                return;
+            }
+
+            const wb = XLSX.utils.book_new();
+            wb.Props = {
+                Title: "Assegnazione Sorveglianze",
+                Subject: "ISTCG Primo Levi",
+                Author: "Prof. Zucconelli Marisa",
+                CreatedDate: new Date()
+            };
+
+            giorni.forEach(giorno => {
+                const ws_data = [
+                    ["Piano", "Corridoio", "Intervallo 1 (9:45)", "Intervallo 2 (12:45)"]
+                ];
+
+                const allHotspots = new Set([
+                    ...Object.keys(assignments[giorno].int1),
+                    ...Object.keys(assignments[giorno].int2)
+                ]);
+                const sortedHotspots = Array.from(allHotspots).sort((a, b) => {
+                    const [pa, ca] = a.split('-');
+                    const [pb, cb] = b.split('-');
+                    if (pa !== pb) return pa.localeCompare(pb);
+                    return ca.localeCompare(cb);
+                });
+                
+                if (sortedHotspots.length === 0) {
+                    ws_data.push(["Nessuna sorveglianza necessaria.", "", "", ""]);
+                } else {
+                    sortedHotspots.forEach(hotspot => {
+                        const [piano, corridoio] = hotspot.split('-');
+                        const docenti1 = (assignments[giorno].int1[hotspot] || []).join(', ') || '-';
+                        const docenti2 = (assignments[giorno].int2[hotspot] || []).join(', ') || '-';
+                        ws_data.push([`Piano ${piano}`, corridoio, docenti1, docenti2]);
+                    });
+                }
+                
+                const ws = XLSX.utils.aoa_to_sheet(ws_data);
+                
+                // Imposta larghezza colonne
+                ws['!cols'] = [ { wch: 15 }, { wch: 15 }, { wch: 40 }, { wch: 40 } ];
+                
+                XLSX.utils.book_append_sheet(wb, ws, giorno.toUpperCase());
+            });
+            
+            const today = new Date().toLocaleDateString('it-IT').replace(/\//g, '-');
+            XLSX.writeFile(wb, `Assegnazione_Sorveglianze_${today}.xlsx`);
+        }
+        window.exportExcel = exportExcel;
+
+        // --- UTILITIES ---
+        
+        // Funzione per mostrare un popup "toast"
+        function showToast(message, type = 'success') {
+            const toast = document.getElementById('toast-notification');
+            const toastMessage = document.getElementById('toast-message');
+            
+            toast.classList.remove('hidden', 'bg-green-500', 'bg-red-500', 'bg-blue-500');
+            
+            if (type === 'success') {
+                toast.classList.add('bg-green-500');
+            } else if (type === 'error') {
+                toast.classList.add('bg-red-500');
+            } else {
+                toast.classList.add('bg-blue-500');
+            }
+            
+            toastMessage.textContent = message;
+            toast.classList.remove('hidden', 'opacity-0');
+            
+            setTimeout(() => {
+                toast.classList.add('opacity-0');
+                setTimeout(() => toast.classList.add('hidden'), 500); // Nascondi dopo la transizione
+            }, 3000);
+        }
+        
+        // Funzione per mischiare un array (Fisher-Yates)
+        function shuffleArray(array) {
+            for (let i = array.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [array[i], array[j]] = [array[j], array[i]];
+            }
+            return array;
+        }
+
+    </script>
+    
+    <style>
+        /* Stile per il font Inter e scrollbar */
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+        /* Scrollbar sottile per la tabella orario */
+        #orario-table-wrapper::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        #orario-table-wrapper::-webkit-scrollbar-track {
+            background: #f1f1f1;
+            border-radius: 10px;
+        }
+        #orario-table-wrapper::-webkit-scrollbar-thumb {
+            background: #c5c5c5;
+            border-radius: 10px;
+        }
+        #orario-table-wrapper::-webkit-scrollbar-thumb:hover {
+            background: #a8a8a8;
+        }
+        /* Stile per celle editabili */
+        td[contenteditable="true"] {
+            outline: 2px solid transparent;
+            transition: outline 0.2s ease;
+        }
+        td[contenteditable="true"]:focus {
+            background-color: #e0e7ff !important;
+            outline: 2px solid #4f46e5;
+            box-shadow: 0 0 0 2px #4f46e5;
+            z-index: 10;
+            position: relative;
+        }
+    </style>
+</head>
+
+<body class="bg-gray-100">
+
+    <!-- Schermata di caricamento -->
+    <div id="loading-spinner" class="fixed inset-0 bg-white flex flex-col items-center justify-center z-50">
+        <svg class="animate-spin -ml-1 mr-3 h-10 w-10 text-indigo-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+        </svg>
+        <p id="loading-message" class="mt-4 text-lg font-medium text-gray-700">Caricamento in corso... Connessione al database...</p>
+    </div>
+
+    <!-- Contenuto principale (nascosto al caricamento) -->
+    <div id="main-content" class="hidden">
+        
+        <!-- Header -->
+        <header class="bg-white shadow-md sticky top-0 z-40">
+            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                <div class="flex justify-between items-center h-16">
+                    <div class="flex-shrink-0">
+                        <h1 class="text-2xl font-bold text-indigo-700">ISTCG Primo Levi - Seregno</h1>
+                        <p class="text-sm text-gray-600">Referente: Prof.ssa Zucconelli Marisa</p>
+                    </div>
+                    <!-- Navigazione Desktop -->
+                    <nav class="hidden md:flex space-x-1">
+                        <button onclick="showPage('page-dashboard')" class="text-indigo-100 hover:bg-indigo-500 px-3 py-2 rounded-md text-sm font-medium">Dashboard</button>
+                        <button onclick="showPage('page-orario')" class="text-indigo-100 hover:bg-indigo-500 px-3 py-2 rounded-md text-sm font-medium">Orario Docenti</button>
+                        <button onclick="showPage('page-classi')" class="text-indigo-100 hover:bg-indigo-500 px-3 py-2 rounded-md text-sm font-medium">Gestione Classi</button>
+                        <button onclick="showPage('page-assegnazione')" class="text-indigo-100 hover:bg-indigo-500 px-3 py-2 rounded-md text-sm font-medium">Assegnazione Sorveglianze</button>
+                    </nav>
+                </div>
+            </div>
+            <!-- Navigazione Mobile (semplificata) -->
+            <nav class="md:hidden bg-indigo-600 flex justify-around p-2">
+                <button onclick="showPage('page-dashboard')" class="text-white text-xs p-1">Dashboard</button>
+                <button onclick="showPage('page-orario')" class="text-white text-xs p-1">Orario</button>
+                <button onclick="showPage('page-classi')" class="text-white text-xs p-1">Classi</button>
+                <button onclick="showPage('page-assegnazione')" class="text-white text-xs p-1">Risultati</button>
+            </nav>
+        </header>
+
+        <!-- Contenuto della Pagina -->
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+            
+            <!-- Pagina Dashboard -->
+            <main id="page-dashboard" class="page-content">
+                <h2 class="text-3xl font-bold text-gray-800 mb-6">Dashboard Gestione Sorveglianze</h2>
+                
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+                    <!-- Card Statistiche -->
+                    <div class="bg-white p-6 rounded-lg shadow-md">
+                        <h3 class="text-lg font-medium text-gray-700">Sorveglianze Assegnate</h3>
+                        <p id="stat-total-sorveglianze" class="text-4xl font-bold text-indigo-600 mt-2">0</p>
+                        <p class="text-sm text-gray-500">Totale assegnazioni (docente-luogo)</p>
+                    </div>
+                    <div class="bg-white p-6 rounded-lg shadow-md">
+                        <h3 class="text-lg font-medium text-gray-700">Docenti Coinvolti</h3>
+                        <p id="stat-total-docenti" class="text-4xl font-bold text-indigo-600 mt-2">0</p>
+                        <p class="text-sm text-gray-500">Numero unico di docenti con almeno 1 turno</p>
+                    </div>
+                    <div class="bg-white p-6 rounded-lg shadow-md flex flex-col justify-center items-center">
+                        <button onclick="runAlgorithm()" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-4 px-6 rounded-lg shadow-lg transition duration-300 ease-in-out transform hover:-translate-y-1">
+                            Avvia / Aggiorna Algoritmo
+                        </button>
+                        <p class="text-xs text-gray-500 mt-3 text-center">Clicca per calcolare le assegnazioni in base all'orario e alle classi.</p>
+                    </div>
+                </div>
+
+                <!-- Spiegazione Logica -->
+                <div class="bg-white p-6 rounded-lg shadow-md">
+                    <h3 class="text-xl font-bold text-gray-800 mb-4">Logica di Assegnazione</h3>
+                    <p class="text-gray-700 mb-2">L'algoritmo assegna i docenti per la sorveglianza seguendo queste regole:</p>
+                    <ul class="list-disc list-inside space-y-2 text-gray-600">
+                        <li><strong>Intervalli:</strong> Vengono coperti l'Intervallo 1 (9:45-9:55) e l'Intervallo 2 (12:45-13:00).</li>
+                        <li><strong>Disponibilità Docente:</strong> Un docente è disponibile se è libero nell'ora *precedente* O nell'ora *successiva* all'intervallo.
+                            <ul class="list-circle list-inside ml-6">
+                                <li><strong>Int 1:</strong> Libero alla 2° ora (8:50-9:45) O alla 3° ora (9:55-10:50).</li>
+                                <li><strong>Int 2:</strong> Libero alla 5° ora (11:50-12:45) O alla 6° ora (13:00-13:50).</li>
+                            </ul>
+                        </li>
+                        <li><strong>Luoghi (Hotspots):</strong> La sorveglianza è assegnata per ogni combinazione unica di <strong>Piano-Corridoio</strong> inserita nella pagina "Gestione Classi".</li>
+                        <li><strong>Regola di Assegnazione:</strong> Vengono assegnati fino a <strong>2 docenti</strong> per ogni hotspot (Piano-Corridoio).</li>
+                        <li><strong>Regola di Equità (Molto Importante):</strong> Un docente <strong>non può</strong> essere assegnato a entrambi gli intervalli nello stesso giorno, per garantire la rotazione.</li>
+                        <li><strong>Rotazione:</strong> I docenti disponibili vengono mischiati (shuffle) prima dell'assegnazione per variare i turni.</li>
+                    </ul>
+                </div>
+            </main>
+
+            <!-- Pagina Orario Docenti -->
+            <main id="page-orario" class="page-content hidden">
+                <div class="flex justify-between items-center mb-4">
+                    <h2 class="text-3xl font-bold text-gray-800">Orario Docenti</h2>
+                    <button onclick="saveOrario()" class="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded-lg shadow-md">
+                        Salva Modifiche Orario
+                    </button>
+                </div>
+                <p class="text-gray-600 mb-4">Clicca su una cella per modificare l'orario. Le modifiche vengono salvate solo quando clicchi il bottone "Salva Modifiche".</p>
+                <div id="orario-table-wrapper" class="overflow-auto shadow-lg rounded-lg" style="max-height: 70vh;">
+                    <div id="orario-table-container">
+                        <!-- La tabella verrà iniettata qui dal JS -->
+                    </div>
+                </div>
+            </main>
+
+            <!-- Pagina Gestione Classi -->
+            <main id="page-classi" class="page-content hidden">
+                <div class="flex justify-between items-center mb-4">
+                    <h2 class="text-3xl font-bold text-gray-800">Gestione Posizione Classi</h2>
+                    <button onclick="saveClassiFromButton()" class="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded-lg shadow-md">
+                        Salva Configurazione Classi
+                    </button>
+                </div>
+                <p class="text-gray-600 mb-4">Definisci qui dove si trovano le classi. L'algoritmo userà questi dati per determinare i "corridoi caldi" (hotspots) da sorvegliare.</p>
+
+                <!-- Form Aggiungi Classe -->
+                <div class="bg-white p-4 rounded-lg shadow-md mb-6">
+                    <h3 class="text-lg font-medium text-gray-900 mb-3">Aggiungi Nuova Classe</h3>
+                    <div class="flex flex-col md:flex-row gap-4">
+                        <input type="text" id="new-class-name" placeholder="Nome Classe (es. 3A)" class="flex-grow py-2 px-3 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500">
+                        <select id="new-class-tipo" class="py-2 px-3 border border-gray-300 bg-white rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500">
+                            <option value="DADA">DADA (Posizione variabile)</option>
+                            <option value="FISSA">FISSA (Posizione fissa)</option>
+                        </select>
+                        <button onclick="addNewClass()" class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded-lg shadow-md">
+                            Aggiungi Classe
+                        </button>
+                    </div>
+                </div>
+                
+                <!-- Container per i form delle classi -->
+                <div id="class-config-container">
+                    <!-- I form per ogni classe verranno iniettati qui -->
+                </div>
+            </main>
+
+            <!-- Pagina Assegnazione Sorveglianze -->
+            <main id="page-assegnazione" class="page-content hidden">
+                <div class="flex justify-between items-center mb-6">
+                    <h2 class="text-3xl font-bold text-gray-800">Risultati Assegnazione Sorveglianze</h2>
+                    <div class="flex space-x-2">
+                        <button onclick="exportPDF()" class="bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-4 rounded-lg shadow-md">
+                            Esporta PDF
+                        </button>
+                        <button onclick="exportExcel()" class="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded-lg shadow-md">
+                            Esporta Excel
+                        </button>
+                    </div>
+                </div>
+                
+                <div id="results-container" class="bg-white p-4 sm:p-6 rounded-lg shadow-md">
+                    <p class="text-gray-600">Avvia l'algoritmo dalla Dashboard per vedere i risultati.</p>
+                    <!-- I tab e le tabelle dei risultati verranno iniettati qui -->
+                </div>
+            </main>
+            
+        </div>
+    </div>
+    
+    <!-- Toast Notification -->
+    <div id="toast-notification" class="fixed bottom-5 right-5 bg-green-500 text-white py-3 px-5 rounded-lg shadow-xl opacity-0 transition-opacity duration-500 hidden z-50">
+        <p id="toast-message">Operazione completata!</p>
+    </div>
+
+</body>
+</html>
+
+
+
+
